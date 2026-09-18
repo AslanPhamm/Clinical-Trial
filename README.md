@@ -1,15 +1,21 @@
-# My Google Apps Script Project
+# Clinical Trial Management
 
-Repository này chứa code Google Apps Script được deploy tự động từ GitHub.
+Repository chứa code Google Apps Script để quản lý nghiên cứu lâm sàng.
 
 ## Cấu trúc
 
 - `src/` - Chứa các file code Apps Script
+  - `code.gs` - Logic chính
+  - `index.html` - Giao diện web app
 - `appsscript.json` - File cấu hình project
+- `.github/workflows/auto-push.yml` - CI/CD workflow
 
-## Cách sử dụng
+## Auto-Deploy
 
-1. Clone repository
-2. Viết code trong thư mục `src/`
-3. Commit và push lên GitHub
-4. CLAUDE sẽ hỗ trợ deploy lên Apps Script
+Mỗi khi push code lên branch `main`, GitHub Actions sẽ tự động:
+
+1. Tạo branch mới với timestamp
+2. Push code lên branch mới
+3. Tạo Pull Request
+
+Kiểm tra workflow: [Actions](https://github.com/AslanPhamm/Clinical-Trial/actions)
