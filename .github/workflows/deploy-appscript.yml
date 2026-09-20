@@ -1,0 +1,195 @@
+name: Deploy to Apps Script
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g clasp
+
+      - name: Authorize clasp
+        env:
+          CLASP_ACCESS_TOKEN: ${{ secrets.CLASP_ACCESS_TOKEN }}
+          CLASP_REFRESH_TOKEN: ${{ secrets.CLASP_REFRESH_TOKEN }}
+          CLASP_TOKEN_TYPE: ${{ secrets.CLASP_TOKEN_TYPE }}
+          CLASP_EXPIRY: ${{ secrets.CLASP_EXPIRY }}
+        run: |
+          mkdir -p ~/.config/clasp
+          cat > ~/.clasprc.json << 'EOF'
+          {
+            "token": {
+              "access_token": "$CLASP_ACCESS_TOKEN",
+              "refresh_token": "$CLASP_REFRESH_TOKEN",
+              "token_type": "$CLASP_TOKEN_TYPE",
+              "expiry_date": $CLASP_EXPIRY
+            }
+          }
+          EOF
+
+      - name: Get Apps Script ID
+        id: script-id
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+        run: |
+          echo "script_id=$APPS_SCRIPT_ID" >> $GITHUB_OUTPUT
+          echo "Script ID: $APPS_SCRIPT_ID"
+
+      - name: Push to Apps Script
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+        run: |
+          clasp push --force
+
+      - name: Create new deployment
+        id: deployment
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+        run: |
+          # Tạo deployment mới
+          RESPONSE=$(clasp deploy --description "Auto-deploy $(date '+%Y-%m-%d %H:%M:%S')" --deploymentId new)
+          echo "Deployment response: $RESPONSE"
+
+          # Lấy deployment ID và version từ response
+          DEPLOYMENT_ID=$(echo "$RESPONSE" | grep -oP '-\d+' | tail -1 | tr -d '-')
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+
+      - name: Generate new URL
+        id: url
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+          DEPLOYMENT_ID: ${{ needs.deploy.outputs.deployment_id }}
+        run: |
+          # Tạo deployment mới để lấy URL mới
+          clasp deploy --description "Latest" > deployment.json
+
+          # Tạo URL đầy đủ
+          APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbw0c-jBJee-B0dMy0Sz1UVhyDAZmWOu3kv16eiJNsG-/exec"
+          echo "apps_script_url=$APPS_SCRIPT_URL" >> $GITHUB_OUTPUT
+
+      - name: Update GitHub Pages with new URL
+        run: |
+          APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbw0c-jBJee-B0dMy0Sz1UVhyDAZmWOu3kv16eiJNsG-/exec"
+
+          # Tạo landing page với URL mới
+          cat > index.html << 'HTML'
+          <!DOCTYPE html>
+          <html lang="vi">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta http-equiv="refresh" content="0;url=APPS_SCRIPT_URL">
+            <title>Clinical Research Task Manager</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+              }
+              .container {
+                background: white;
+                border-radius: 20px;
+                padding: 40px;
+                text-align: center;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+                max-width: 500px;
+                margin: 20px;
+              }
+              h1 { color: #1a1a2e; margin-bottom: 10px; font-size: 24px; }
+              p { color: #666; margin-bottom: 20px; }
+              .loader {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #667eea;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+                margin: 20px auto;
+              }
+              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+              .fallback { margin-top: 20px; }
+              .fallback a {
+                display: inline-block;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 15px 40px;
+                border-radius: 50px;
+                text-decoration: none;
+                font-weight: 600;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>🏥 Clinical Research Task Manager</h1>
+              <p>Đang chuyển hướng đến ứng dụng...</p>
+              <div class="loader"></div>
+              <p style="font-size: 12px; color: #999;">Phiên bản: LATEST</p>
+              <div class="fallback">
+                <a href="APPS_SCRIPT_URL">Mở ứng dụng</a>
+              </div>
+            </div>
+            <script>
+              // Auto redirect
+              window.location.href = 'APPS_SCRIPT_URL';
+            </script>
+          </body>
+          </html>
+          HTML
+
+          # Thay thế URL placeholder
+          sed -i "s|APPS_SCRIPT_URL|$APPS_SCRIPT_URL|g" index.html
+
+      - name: Commit updated index.html
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add index.html
+          git commit -m "chore: update Apps Script URL [skip ci]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)" || echo "No changes to commit"
+          git push origin main || echo "Push skipped"
+
+  deploy-pages:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'index.html'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
