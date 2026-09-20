@@ -29,16 +29,19 @@ jobs:
           CLASP_EXPIRY: ${{ secrets.CLASP_EXPIRY }}
         run: |
           mkdir -p ~/.config/clasp
-          cat > ~/.clasprc.json << 'EOF'
+          EXPIRY_NUM=$(echo "$CLASP_EXPIRY" | tr -d '"' | tr -d ' ')
+          cat > ~/.clasprc.json << EOF
           {
             "token": {
-              "access_token": "$CLASP_ACCESS_TOKEN",
-              "refresh_token": "$CLASP_REFRESH_TOKEN",
-              "token_type": "$CLASP_TOKEN_TYPE",
-              "expiry_date": $CLASP_EXPIRY
+              "access_token": "${CLASP_ACCESS_TOKEN}",
+              "refresh_token": "${CLASP_REFRESH_TOKEN}",
+              "token_type": "${CLASP_TOKEN_TYPE}",
+              "expiry_date": ${EXPIRY_NUM}
             }
           }
           EOF
+          echo "clasprc.json created:"
+          cat ~/.clasprc.json
 
       - name: Get Apps Script ID
         id: script-id
