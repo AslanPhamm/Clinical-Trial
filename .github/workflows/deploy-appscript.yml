@@ -23,25 +23,32 @@ jobs:
 
       - name: Authorize clasp
         env:
-          CLASP_ACCESS_TOKEN: ${{ secrets.CLASP_ACCESS_TOKEN }}
-          CLASP_REFRESH_TOKEN: ${{ secrets.CLASP_REFRESH_TOKEN }}
-          CLASP_TOKEN_TYPE: ${{ secrets.CLASP_TOKEN_TYPE }}
-          CLASP_EXPIRY: ${{ secrets.CLASP_EXPIRY }}
+          CLIENT_ID: ${{ secrets.CLASP_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLASP_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CLASP_REFRESH_TOKEN }}
+          ACCESS_TOKEN: ${{ secrets.CLASP_ACCESS_TOKEN }}
         run: |
           mkdir -p ~/.config/clasp
-          EXPIRY_NUM=$(echo "$CLASP_EXPIRY" | tr -d '"' | tr -d ' ')
-          cat > ~/.clasprc.json << EOF
-          {
-            "token": {
-              "access_token": "${CLASP_ACCESS_TOKEN}",
-              "refresh_token": "${CLASP_REFRESH_TOKEN}",
-              "token_type": "${CLASP_TOKEN_TYPE}",
-              "expiry_date": ${EXPIRY_NUM}
-            }
+          python3 << 'PYEOF'
+          import json
+          import os
+
+          config = {
+              "token": {
+                  "client_id": os.environ["CLIENT_ID"],
+                  "client_secret": os.environ["CLIENT_SECRET"],
+                  "refresh_token": os.environ["REFRESH_TOKEN"],
+                  "access_token": os.environ["ACCESS_TOKEN"],
+                  "type": "authorized_user"
+              }
           }
-          EOF
-          echo "clasprc.json created:"
-          cat ~/.clasprc.json
+
+          with open(os.path.expanduser("~/.clasprc.json"), "w") as f:
+              json.dump(config, f, indent=2)
+
+          print("clasprc.json created successfully")
+          print(json.dumps(config, indent=2))
+          PYEOF
 
       - name: Get Apps Script ID
         id: script-id
@@ -62,39 +69,29 @@ jobs:
         env:
           APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
         run: |
-          # Tạo deployment mới
-          RESPONSE=$(clasp deploy --description "Auto-deploy $(date '+%Y-%m-%d %H:%M:%S')" --deploymentId new)
-          echo "Deployment response: $RESPONSE"
-
-          # Lấy deployment ID và version từ response
-          DEPLOYMENT_ID=$(echo "$RESPONSE" | grep -oP '-\d+' | tail -1 | tr -d '-')
-          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
-
-      - name: Generate new URL
-        id: url
-        env:
-          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
-          DEPLOYMENT_ID: ${{ needs.deploy.outputs.deployment_id }}
-        run: |
-          # Tạo deployment mới để lấy URL mới
-          clasp deploy --description "Latest" > deployment.json
-
-          # Tạo URL đầy đủ
-          APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbw0c-jBJee-B0dMy0Sz1UVhyDAZmWOu3kv16eiJNsG-/exec"
-          echo "apps_script_url=$APPS_SCRIPT_URL" >> $GITHUB_OUTPUT
+          DEPLOYMENT_OUTPUT=$(clasp deploy --description "Auto-deploy $(date '+%Y-%m-%d %H:%M:%S')")
+          echo "Deployment output: $DEPLOYMENT_OUTPUT"
+          echo "deployment_output=$DEPLOYMENT_OUTPUT" >> $GITHUB_OUTPUT
 
       - name: Update GitHub Pages with new URL
         run: |
-          APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbw0c-jBJee-B0dMy0Sz1UVhyDAZmWOu3kv16eiJNsG-/exec"
+          # Lấy deployment ID từ output
+          DEPLOYMENT_OUTPUT="${{ steps.deployment.outputs.deployment_output }}"
+          echo "Deployment output: $DEPLOYMENT_OUTPUT"
+
+          # Tạo URL mới - sử dụng deployment ID mới nhất
+          # Format: https://script.google.com/macros/s/{scriptId}/exec
+          APPS_SCRIPT_URL="https://script.google.com/macros/s/${{ secrets.APPS_SCRIPT_ID }}/exec"
+          echo "Apps Script URL: $APPS_SCRIPT_URL"
 
           # Tạo landing page với URL mới
-          cat > index.html << 'HTML'
+          cat > index.html << HTML
           <!DOCTYPE html>
           <html lang="vi">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta http-equiv="refresh" content="0;url=APPS_SCRIPT_URL">
+            <meta http-equiv="refresh" content="0;url=${APPS_SCRIPT_URL}">
             <title>Clinical Research Task Manager</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -138,6 +135,7 @@ jobs:
                 text-decoration: none;
                 font-weight: 600;
               }
+              .version { font-size: 12px; color: #999; margin-top: 10px; }
             </style>
           </head>
           <body>
@@ -145,21 +143,19 @@ jobs:
               <h1>🏥 Clinical Research Task Manager</h1>
               <p>Đang chuyển hướng đến ứng dụng...</p>
               <div class="loader"></div>
-              <p style="font-size: 12px; color: #999;">Phiên bản: LATEST</p>
+              <p class="version">Phiên bản: $(date '+%Y-%m-%d %H:%M:%S')</p>
               <div class="fallback">
-                <a href="APPS_SCRIPT_URL">Mở ứng dụng</a>
+                <a href="${APPS_SCRIPT_URL}">Mở ứng dụng</a>
               </div>
             </div>
             <script>
-              // Auto redirect
-              window.location.href = 'APPS_SCRIPT_URL';
+              window.location.href = '${APPS_SCRIPT_URL}';
             </script>
           </body>
           </html>
           HTML
 
-          # Thay thế URL placeholder
-          sed -i "s|APPS_SCRIPT_URL|$APPS_SCRIPT_URL|g" index.html
+          echo "index.html created successfully"
 
       - name: Commit updated index.html
         run: |
