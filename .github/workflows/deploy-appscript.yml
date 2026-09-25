@@ -73,97 +73,24 @@ jobs:
           echo "Deployment output: $DEPLOYMENT_OUTPUT"
           echo "deployment_output=$DEPLOYMENT_OUTPUT" >> $GITHUB_OUTPUT
 
-      - name: Update GitHub Pages with new URL
+      - name: Create redirect page
         run: |
-          # Lấy deployment ID từ output
-          DEPLOYMENT_OUTPUT="${{ steps.deployment.outputs.deployment_output }}"
-          echo "Deployment output: $DEPLOYMENT_OUTPUT"
-
-          # Tạo URL mới - sử dụng deployment ID mới nhất
-          # Format: https://script.google.com/macros/s/{scriptId}/exec
+          # Tạo redirect page đơn giản
           APPS_SCRIPT_URL="https://script.google.com/macros/s/${{ secrets.APPS_SCRIPT_ID }}/exec"
           echo "Apps Script URL: $APPS_SCRIPT_URL"
 
-          # Tạo landing page với URL mới
           cat > index.html << HTML
           <!DOCTYPE html>
-          <html lang="vi">
+          <html>
           <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
             <meta http-equiv="refresh" content="0;url=${APPS_SCRIPT_URL}">
-            <title>Clinical Research Task Manager</title>
-            <style>
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                flex-direction: column;
-              }
-              .container {
-                background: white;
-                border-radius: 20px;
-                padding: 40px;
-                text-align: center;
-                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-                max-width: 500px;
-                margin: 20px;
-              }
-              h1 { color: #1a1a2e; margin-bottom: 10px; font-size: 24px; }
-              p { color: #666; margin-bottom: 20px; }
-              .loader {
-                border: 4px solid #f3f3f3;
-                border-top: 4px solid #667eea;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                animation: spin 1s linear infinite;
-                margin: 20px auto;
-              }
-              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-              .fallback { margin-top: 20px; }
-              .fallback a {
-                display: inline-block;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 15px 40px;
-                border-radius: 50px;
-                text-decoration: none;
-                font-weight: 600;
-              }
-              .version { font-size: 12px; color: #999; margin-top: 10px; }
-            </style>
+            <title>Redirecting...</title>
           </head>
           <body>
-            <div class="container">
-              <h1>🏥 Clinical Research Task Manager</h1>
-              <p>Đang chuyển hướng đến ứng dụng...</p>
-              <div class="loader"></div>
-              <p class="version">Phiên bản: $(date '+%Y-%m-%d %H:%M:%S')</p>
-              <div class="fallback">
-                <a href="${APPS_SCRIPT_URL}">Mở ứng dụng</a>
-              </div>
-            </div>
-            <script>
-              window.location.href = '${APPS_SCRIPT_URL}';
-            </script>
+            <p>Redirecting to <a href="${APPS_SCRIPT_URL}">App</a>...</p>
           </body>
           </html>
           HTML
-
-          echo "index.html created successfully"
-
-      - name: Commit updated index.html
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add index.html
-          git commit -m "chore: update Apps Script URL" || echo "No changes to commit"
-          git push origin main || echo "Push skipped"
 
   deploy-pages:
     needs: deploy
