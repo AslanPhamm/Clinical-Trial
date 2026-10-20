@@ -30,18 +30,23 @@ jobs:
           REFRESH_TOKEN: ${{ secrets.CLASP_REFRESH_TOKEN }}
           ACCESS_TOKEN: ${{ secrets.CLASP_ACCESS_TOKEN }}
         run: |
-          mkdir -p ~/.config/clasp
           python3 << 'PYEOF'
           import json
           import os
 
+          # clasp 3.x reads ~/.clasprc.json as {"tokens": {"<user>": <StoredCredential>}}.
+          # (the old flat {"token": {...}} shape from clasp 2.x is no longer recognized)
           config = {
-              "token": {
-                  "client_id": os.environ["CLIENT_ID"],
-                  "client_secret": os.environ["CLIENT_SECRET"],
-                  "refresh_token": os.environ["REFRESH_TOKEN"],
-                  "access_token": os.environ["ACCESS_TOKEN"],
-                  "type": "authorized_user"
+              "tokens": {
+                  "default": {
+                      "type": "authorized_user",
+                      "client_id": os.environ["CLIENT_ID"],
+                      "client_secret": os.environ["CLIENT_SECRET"],
+                      "refresh_token": os.environ["REFRESH_TOKEN"],
+                      "access_token": os.environ["ACCESS_TOKEN"],
+                      "token_type": "Bearer",
+                      "expiry_date": 0
+                  }
               }
           }
 
