@@ -9,6 +9,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    outputs:
+      exec_url: ${{ steps.resolve-deployment.outputs.exec_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,50 +49,82 @@ jobs:
               json.dump(config, f, indent=2)
 
           print("clasprc.json created successfully")
-          print(json.dumps(config, indent=2))
           PYEOF
 
-      - name: Get Apps Script ID
-        id: script-id
+      - name: Create clasp project config
         env:
           APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
         run: |
-          echo "script_id=$APPS_SCRIPT_ID" >> $GITHUB_OUTPUT
-          echo "Script ID: $APPS_SCRIPT_ID"
+          python3 << 'PYEOF'
+          import json
+          import os
+
+          config = {
+              "scriptId": os.environ["APPS_SCRIPT_ID"],
+              "rootDir": "src"
+          }
+
+          with open(".clasp.json", "w") as f:
+              json.dump(config, f, indent=2)
+
+          print(".clasp.json created successfully")
+          PYEOF
 
       - name: Push to Apps Script
-        env:
-          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
-        run: |
-          clasp push --force
+        run: clasp push --force
 
-      - name: Create new deployment
-        id: deployment
+      - name: Resolve deployment and build redirect page
+        id: resolve-deployment
         env:
-          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          REPO: ${{ github.repository }}
         run: |
-          DEPLOYMENT_OUTPUT=$(clasp deploy --description "Auto-deploy $(date '+%Y-%m-%d %H:%M:%S')")
-          echo "Deployment output: $DEPLOYMENT_OUTPUT"
-          echo "deployment_output=$DEPLOYMENT_OUTPUT" >> $GITHUB_OUTPUT
+          set -e
 
-      - name: Create redirect page
-        run: |
-          # Tạo redirect page đơn giản
-          APPS_SCRIPT_URL="https://script.google.com/macros/s/${{ secrets.APPS_SCRIPT_ID }}/exec"
-          echo "Apps Script URL: $APPS_SCRIPT_URL"
+          EXISTING_ID=$(gh api "repos/$REPO/actions/variables/APPS_SCRIPT_DEPLOYMENT_ID" --jq .value 2>/dev/null || true)
+          DESCRIPTION="Auto-deploy $(date '+%Y-%m-%d %H:%M:%S')"
+
+          if [ -n "$EXISTING_ID" ]; then
+            echo "Reusing existing deployment: $EXISTING_ID"
+            clasp deploy --deploymentId "$EXISTING_ID" --description "$DESCRIPTION"
+            DEPLOYMENT_ID="$EXISTING_ID"
+          else
+            echo "No existing deployment recorded, creating a new one"
+            DEPLOY_OUTPUT=$(clasp deploy --description "$DESCRIPTION")
+            echo "$DEPLOY_OUTPUT"
+            DEPLOYMENT_ID=$(echo "$DEPLOY_OUTPUT" | grep -oE 'AKfycb[A-Za-z0-9_-]+' | head -1)
+
+            if [ -z "$DEPLOYMENT_ID" ]; then
+              echo "::error::Could not parse a deployment id out of clasp's output"
+              exit 1
+            fi
+
+            gh variable set APPS_SCRIPT_DEPLOYMENT_ID --repo "$REPO" --body "$DEPLOYMENT_ID"
+            echo "Saved new deployment id for future runs: $DEPLOYMENT_ID"
+          fi
+
+          EXEC_URL="https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec"
+          echo "Apps Script URL: $EXEC_URL"
+          echo "exec_url=$EXEC_URL" >> "$GITHUB_OUTPUT"
 
           cat > index.html << HTML
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${APPS_SCRIPT_URL}">
-            <title>Redirecting...</title>
+          <meta http-equiv="refresh" content="0;url=${EXEC_URL}">
+          <title>Redirecting...</title>
           </head>
           <body>
-            <p>Redirecting to <a href="${APPS_SCRIPT_URL}">App</a>...</p>
+          <p>Redirecting to <a href="${EXEC_URL}">App</a>...</p>
           </body>
           </html>
           HTML
+
+      - name: Upload redirect page artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-redirect
+          path: index.html
 
   deploy-pages:
     needs: deploy
@@ -103,8 +137,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Download redirect page artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pages-redirect
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -112,7 +148,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'index.html'
+          path: '.'
 
       - name: Deploy to GitHub Pages
         id: deployment
