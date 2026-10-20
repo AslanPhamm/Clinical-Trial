@@ -86,15 +86,33 @@ jobs:
         run: |
           set -e
 
-          EXISTING_ID=$(gh api "repos/$REPO/actions/variables/APPS_SCRIPT_DEPLOYMENT_ID" --jq .value 2>/dev/null || true)
+          set +e
+          EXISTING_ID=$(gh api "repos/$REPO/actions/variables/APPS_SCRIPT_DEPLOYMENT_ID" --jq .value 2>/dev/null)
+          API_STATUS=$?
+          set -e
+          if [ $API_STATUS -ne 0 ]; then
+            EXISTING_ID=""
+          fi
+
           DESCRIPTION="Auto-deploy $(date '+%Y-%m-%d %H:%M:%S')"
+          DEPLOYMENT_ID=""
 
           if [ -n "$EXISTING_ID" ]; then
             echo "Reusing existing deployment: $EXISTING_ID"
-            clasp deploy --deploymentId "$EXISTING_ID" --description "$DESCRIPTION"
-            DEPLOYMENT_ID="$EXISTING_ID"
-          else
-            echo "No existing deployment recorded, creating a new one"
+            set +e
+            DEPLOY_OUTPUT=$(clasp deploy --deploymentId "$EXISTING_ID" --description "$DESCRIPTION" 2>&1)
+            DEPLOY_STATUS=$?
+            set -e
+            echo "$DEPLOY_OUTPUT"
+            if [ $DEPLOY_STATUS -eq 0 ] && ! echo "$DEPLOY_OUTPUT" | grep -qi "invalid deployment"; then
+              DEPLOYMENT_ID="$EXISTING_ID"
+            else
+              echo "Saved deployment id is no longer valid, will create a new deployment instead"
+            fi
+          fi
+
+          if [ -z "$DEPLOYMENT_ID" ]; then
+            echo "Creating a new deployment"
             DEPLOY_OUTPUT=$(clasp deploy --description "$DESCRIPTION")
             echo "$DEPLOY_OUTPUT"
             DEPLOYMENT_ID=$(echo "$DEPLOY_OUTPUT" | grep -oE 'AKfycb[A-Za-z0-9_-]+' | head -1)
