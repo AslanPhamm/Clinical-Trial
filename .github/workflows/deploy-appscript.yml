@@ -78,7 +78,7 @@ jobs:
       - name: Push to Apps Script
         run: clasp push --force
 
-      - name: Resolve deployment and build redirect page
+      - name: Resolve deployment and build Pages site
         id: resolve-deployment
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -130,24 +130,33 @@ jobs:
           echo "Apps Script URL: $EXEC_URL"
           echo "exec_url=$EXEC_URL" >> "$GITHUB_OUTPUT"
 
-          cat > index.html << HTML
+          mkdir -p _site
+          cp assets/favicon.png _site/favicon.png
+
+          cat > _site/index.html << HTML
           <!DOCTYPE html>
-          <html>
+          <html lang="vi">
           <head>
-          <meta http-equiv="refresh" content="0;url=${EXEC_URL}">
-          <title>Redirecting...</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Clinical Research Task Manager</title>
+          <link rel="icon" type="image/png" href="favicon.png">
+          <style>
+          html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+          iframe { border: 0; width: 100%; height: 100%; display: block; }
+          </style>
           </head>
           <body>
-          <p>Redirecting to <a href="${EXEC_URL}">App</a>...</p>
+          <iframe src="${EXEC_URL}" title="Clinical Research Task Manager"></iframe>
           </body>
           </html>
           HTML
 
-      - name: Upload redirect page artifact
+      - name: Upload Pages site artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pages-redirect
-          path: index.html
+          name: pages-site
+          path: _site
 
   deploy-pages:
     needs: deploy
@@ -160,10 +169,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Download redirect page artifact
+      - name: Download Pages site artifact
         uses: actions/download-artifact@v4
         with:
-          name: pages-redirect
+          name: pages-site
+          path: _site
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -171,7 +181,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
