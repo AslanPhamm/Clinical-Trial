@@ -6,7 +6,7 @@ Repository chứa code Google Apps Script để quản lý nghiên cứu lâm s�
 
 - `src/` - Chứa các file code Apps Script
   - `code.gs` - Logic chính
-  - `index.html` - Giao diện web app
+  - `Index.html` - Giao diện web app
 - `appsscript.json` - File cấu hình project
 - `.github/workflows/auto-push.yml` - CI/CD workflow
 
