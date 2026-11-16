@@ -290,6 +290,138 @@ function updateTaskStatus(rowNumber, newStatus, cancelReason) {
   }
 }
 
+// ==================== CHI TIẾT NGHIÊN CỨU (sheet DATABASE) ====================
+// Các cột định danh: chỉ đọc trên giao diện, muốn sửa thì sửa thẳng trên sheet
+const DB_READONLY_FIELDS = [
+  'Tên nghiên cứu', 'Tên viết tắt', 'Mã nghiên cứu',
+  'Nghiên cứu viên chính', 'Khoa thực hiện', 'Nhà tài trợ'
+];
+
+function normalizeHeader_(h) {
+  return String(h == null ? '' : h).replace(/\s+/g, ' ').trim();
+}
+
+function cellToString_(value, tz) {
+  if (value == null) return '';
+  if (value instanceof Date) return Utilities.formatDate(value, tz, 'dd/MM/yyyy');
+  if (value === true) return 'TRUE';
+  if (value === false) return 'FALSE';
+  return String(value).trim();
+}
+
+/**
+ * Đọc toàn bộ thông tin một nghiên cứu từ sheet DATABASE.
+ * key: tên viết tắt hoặc mã nghiên cứu.
+ */
+function getResearchDetail(key) {
+  try {
+    const needle = String(key || '').trim().toLowerCase();
+    if (!needle) return { success: false, message: 'Chưa chọn nghiên cứu' };
+
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const dbSheet = ss.getSheetByName(CONFIG.DATABASE_SHEET);
+    if (!dbSheet) return { success: false, message: 'Không tìm thấy sheet "' + CONFIG.DATABASE_SHEET + '"' };
+
+    const lastRow = dbSheet.getLastRow();
+    const lastCol = dbSheet.getLastColumn();
+    if (lastRow < 2) return { success: false, message: 'Sheet DATABASE chưa có dữ liệu' };
+
+    const data = dbSheet.getRange(1, 1, lastRow, lastCol).getValues();
+    const headers = data[0].map(normalizeHeader_);
+    const abbrIdx = headers.indexOf('Tên viết tắt');
+    const codeIdx = headers.indexOf('Mã nghiên cứu');
+    const tz = Session.getScriptTimeZone();
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const abbr = abbrIdx !== -1 ? cellToString_(row[abbrIdx], tz) : '';
+      const code = codeIdx !== -1 ? cellToString_(row[codeIdx], tz) : '';
+      if (abbr.toLowerCase() === needle || code.toLowerCase() === needle) {
+        const values = {};
+        headers.forEach(function (h, idx) {
+          if (h) values[h] = cellToString_(row[idx], tz);
+        });
+        return {
+          success: true,
+          data: {
+            row: i + 1,
+            abbr: abbr,
+            code: code,
+            headers: headers.filter(function (h) { return !!h; }),
+            readonlyFields: DB_READONLY_FIELDS,
+            values: values
+          }
+        };
+      }
+    }
+    return { success: false, message: 'Không tìm thấy nghiên cứu: ' + key };
+  } catch (error) {
+    return { success: false, message: 'Lỗi khi đọc sheet DATABASE: ' + error.message };
+  }
+}
+
+/**
+ * Ghi cập nhật định kỳ thẳng vào dòng tương ứng của sheet DATABASE.
+ * payload = { row, abbr, values: { '<tên cột>': '<giá trị>' } }
+ */
+function updateResearch(payload) {
+  try {
+    const row = parseInt(payload && payload.row, 10);
+    const values = (payload && payload.values) || {};
+    if (!row || row < 2) return { success: false, message: 'Dòng nghiên cứu không hợp lệ' };
+
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const dbSheet = ss.getSheetByName(CONFIG.DATABASE_SHEET);
+    if (!dbSheet) return { success: false, message: 'Không tìm thấy sheet "' + CONFIG.DATABASE_SHEET + '"' };
+    if (row > dbSheet.getLastRow()) return { success: false, message: 'Không tìm thấy dòng nghiên cứu' };
+
+    const lastCol = dbSheet.getLastColumn();
+    const headers = dbSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(normalizeHeader_);
+    const abbrIdx = headers.indexOf('Tên viết tắt');
+
+    // Kiểm tra đúng dòng trước khi ghi, tránh ghi nhầm khi sheet bị chèn/xóa dòng
+    const current = dbSheet.getRange(row, 1, 1, lastCol).getValues()[0];
+    if (payload.abbr && abbrIdx !== -1) {
+      const currentAbbr = normalizeHeader_(current[abbrIdx]);
+      if (currentAbbr !== normalizeHeader_(payload.abbr)) {
+        return {
+          success: false,
+          message: 'Dòng ' + row + ' hiện là "' + currentAbbr + '" chứ không phải "' + payload.abbr +
+                   '". Sheet có thể vừa thay đổi, hãy tải lại trang rồi cập nhật lại.'
+        };
+      }
+    }
+
+    const updated = [];
+    const skipped = [];
+    Object.keys(values).forEach(function (key) {
+      const header = normalizeHeader_(key);
+      if (DB_READONLY_FIELDS.indexOf(header) !== -1) { skipped.push(header); return; }
+      const idx = headers.indexOf(header);
+      if (idx === -1) { skipped.push(header); return; }
+      const newValue = values[key] == null ? '' : values[key];
+      if (cellToString_(current[idx], Session.getScriptTimeZone()) !== String(newValue).trim()) {
+        current[idx] = newValue;
+        updated.push(header);
+      }
+    });
+
+    if (updated.length) {
+      dbSheet.getRange(row, 1, 1, lastCol).setValues([current]);
+    }
+
+    return {
+      success: true,
+      message: updated.length
+        ? 'Đã cập nhật ' + updated.length + ' trường vào sheet DATABASE'
+        : 'Không có trường nào thay đổi',
+      data: { row: row, updated: updated, skipped: skipped }
+    };
+  } catch (error) {
+    return { success: false, message: 'Lỗi khi ghi sheet DATABASE: ' + error.message };
+  }
+}
+
 // ==================== XỬ LÝ GÓP Ý ====================
 function getFeedbackSheet_(ss) {
   let sheet = ss.getSheetByName(CONFIG.FEEDBACK_SHEET);
