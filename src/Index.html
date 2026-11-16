@@ -1407,7 +1407,6 @@
           '<h2>' + escapeHtml(detailData.abbr) + '</h2>' +
           '<span class="chip-outline">' + escapeHtml(detailData.code) + '</span>' +
           '<span class="chip-outline" style="color:' + color + ';border-color:' + color + '">' + escapeHtml(status || '—') + '</span>' +
-          '<span style="margin-left:auto;font-size:12px;color:var(--slate)">Dòng ' + detailData.row + ' · sheet DATABASE</span>' +
         '</div>' +
         '<p class="study-title" style="margin-top:8px">' + escapeHtml(dv('Tên nghiên cứu') || '—') + '</p>' +
         '<dl class="study-grid">' +
@@ -1449,7 +1448,7 @@
 
       $('detailFunnel').innerHTML =
         '<h2>Tiến trình bệnh nhân tại BVTN</h2>' +
-        '<p class="card-hint">Nguồn: sheet DATABASE, dòng ' + detailData.row + '</p>' +
+        '<p class="card-hint">Nguồn: sheet DATABASE</p>' +
         funnelDefs.map(function (f) {
           var raw = dv(f.field);
           var n = dnum(f.field);
