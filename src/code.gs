@@ -18,12 +18,15 @@ const DEFAULT_TASK_STATUS = 'Đang thực hiện';
 
 // A: Tên viết tắt | B: Mã nghiên cứu | C: Tên công việc | D: Ngày | E: Người giao
 // F: Ưu tiên | G: Số lượng | H: Link folder | I: Ghi chú
-// J: Trạng thái | K: Lý do hủy | L: Nhóm công việc
+// J: Trạng thái | K: Lý do hủy | L: Người ký
 const TASK_HEADERS = [
   'Tên viết tắt', 'Mã nghiên cứu', 'Tên công việc', 'Ngày', 'Người giao',
   'Ưu tiên', 'Số lượng', 'Link folder', 'Ghi chú',
-  'Trạng thái', 'Lý do hủy', 'Nhóm công việc'
+  'Trạng thái', 'Lý do hủy', 'Người ký'
 ];
+
+// Danh sách người ký (khớp danh sách trong Google Sheet)
+const SIGNERS = ['PGS.Thanh', 'PGS.Toàn', 'PGS.Quế', 'ThS.Vinh'];
 
 // A: Ngày | B: Loại góp ý | C: Màn hình | D: Nghiên cứu | E: Nội dung
 // F: Link ảnh | G: Người gửi | H: Liên hệ | I: Trạng thái | J: Ghi chú xử lý
@@ -150,7 +153,7 @@ function uploadFilesToFolder_(parentFolderId, folderName, files) {
 
 function createTask(taskData) {
   try {
-    const { tenVietTat, taskName, note, documentCount, provider, status, taskGroup, files } = taskData;
+    const { tenVietTat, taskName, note, documentCount, provider, status, signer, files } = taskData;
     if (!tenVietTat || !taskName) {
       return { success: false, message: 'Vui lòng chọn nghiên cứu và nhập tên công việc' };
     }
@@ -180,7 +183,7 @@ function createTask(taskData) {
       note || '',                   // I: Ghi chú
       DEFAULT_TASK_STATUS,          // J: Trạng thái
       '',                           // K: Lý do hủy
-      taskGroup || ''               // L: Nhóm công việc
+      SIGNERS.indexOf(signer) !== -1 ? signer : ''   // L: Người ký
     ];
     taskSheet.appendRow(newRow);
 
@@ -228,7 +231,7 @@ function getTaskList() {
         note: row[8],
         taskStatus: TASK_STATUSES.indexOf(rawStatus) !== -1 ? rawStatus : DEFAULT_TASK_STATUS,
         cancelReason: String(row[10] || '').trim(),
-        taskGroup: String(row[11] || '').trim()
+        signer: String(row[11] || '').trim()
       };
     });
     return { success: true, data: tasks.reverse() };
