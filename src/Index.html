@@ -978,8 +978,9 @@
       $('submitBtn').disabled = false;
       $('submitBtnText').textContent = 'LƯU CÔNG VIỆC';
       if (result && result.success) {
-        var folder = result.data && result.data.folderName ? ' · folder: ' + result.data.folderName : '';
-        showAlert('success', 'Đã lưu công việc cho ' + result.data.tenVietTat + folder);
+        var fileCount = selectedFiles.length;
+        showAlert('success', 'Đã lưu công việc cho ' + result.data.tenVietTat +
+                  (fileCount ? ' · đã tải lên ' + fileCount + ' tệp' : ''));
         resetTaskForm(false);
         loadInitialData();
       } else {
@@ -1200,9 +1201,9 @@
 
       $('taskTableBody').innerHTML = visible.map(function (t) {
         var pr = PRIORITIES.filter(function (p) { return p.value === t.status; })[0] || PRIORITIES[1];
-        var docsCell = t.files
-          ? '<a href="' + escapeHtml(t.files) + '" target="_blank" rel="noopener">' + escapeHtml(String(t.progress || 0)) + ' tệp</a>'
-          : escapeHtml(String(t.progress || 0)) + ' tệp';
+        // Không hiển thị link folder trên web vì lý do bảo mật — link vẫn lưu ở cột H của sheet
+        var docsCell = escapeHtml(String(t.progress || 0)) + ' tệp' +
+                       (t.hasFiles ? '<div style="font-size:11px;color:var(--slate)">đã có folder</div>' : '');
         var options = STATUS_ORDER.map(function (s) {
           return '<option value="' + s + '"' + (s === t.taskStatus ? ' selected' : '') + '>' + s + '</option>';
         }).join('');
@@ -1261,9 +1262,9 @@
     function exportCsv() {
       var rows = filteredTasks();
       if (!rows.length) { showAlert('error', 'Không có công việc nào để xuất.'); return; }
-      var header = ['Tên viết tắt', 'Mã nghiên cứu', 'Tên công việc', 'Người ký', 'Ngày giao', 'Người giao', 'Ưu tiên', 'Số lượng', 'Trạng thái', 'Lý do hủy', 'Link folder', 'Ghi chú'];
+      var header = ['Tên viết tắt', 'Mã nghiên cứu', 'Tên công việc', 'Người ký', 'Ngày giao', 'Người giao', 'Ưu tiên', 'Số lượng', 'Trạng thái', 'Lý do hủy', 'Ghi chú'];
       var lines = [header].concat(rows.map(function (t) {
-        return [t.tenVietTat, t.maNghienCuu, t.name, t.signer, t.startDate, t.provider, t.status, t.progress, t.taskStatus, t.cancelReason, t.files, t.note];
+        return [t.tenVietTat, t.maNghienCuu, t.name, t.signer, t.startDate, t.provider, t.status, t.progress, t.taskStatus, t.cancelReason, t.note];
       }));
       var csv = lines.map(function (line) {
         return line.map(function (cell) { return '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"'; }).join(',');

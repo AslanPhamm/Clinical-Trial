@@ -254,7 +254,8 @@ function getTaskList() {
         provider: String(row[4] == null ? '' : row[4]).trim(),
         status: String(row[5] == null ? '' : row[5]).trim(),   // Ưu tiên (Low/Medium/High)
         progress: row[6] == null ? '' : row[6],                // Số lượng tài liệu
-        files: String(row[7] == null ? '' : row[7]).trim(),    // Link folder
+        // Link folder chỉ lưu ở cột H của sheet, không gửi xuống trình duyệt (bảo mật)
+        hasFiles: String(row[7] == null ? '' : row[7]).trim() !== '',
         note: String(row[8] == null ? '' : row[8]).trim(),
         taskStatus: TASK_STATUSES.indexOf(rawStatus) !== -1 ? rawStatus : DEFAULT_TASK_STATUS,
         cancelReason: String(row[10] == null ? '' : row[10]).trim(),
@@ -492,7 +493,7 @@ function getFeedbackList() {
         screen: String(row[2] || ''),
         research: String(row[3] || ''),
         content: String(row[4] || ''),
-        imageUrl: String(row[5] || ''),
+        hasImage: String(row[5] || '').trim() !== '',   // link ảnh chỉ nằm trong sheet
         sender: String(row[6] || ''),
         contact: String(row[7] || ''),
         status: String(row[8] || 'Mới'),
