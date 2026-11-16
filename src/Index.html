@@ -336,8 +336,8 @@
                 <p class="hint">Chỉ nhập số nguyên ≥ 0</p>
               </div>
               <div>
-                <label class="label" for="taskProvider">Người giao <span class="req">*</span></label>
-                <input class="input" id="taskProvider" type="text" placeholder="Họ tên người giao việc">
+                <label class="label" for="taskProvider">Tên người tạo công việc <span class="req">*</span></label>
+                <input class="input" id="taskProvider" type="text" placeholder="Họ tên người tạo công việc">
               </div>
             </div>
 
@@ -464,7 +464,7 @@
                   <th scope="col">CÔNG VIỆC</th>
                   <th scope="col">NGHIÊN CỨU</th>
                   <th scope="col">NGÀY GIAO</th>
-                  <th scope="col">NGƯỜI GIAO</th>
+                  <th scope="col">NGƯỜI TẠO</th>
                   <th scope="col">ƯU TIÊN</th>
                   <th scope="col">TÀI LIỆU</th>
                   <th scope="col">TRẠNG THÁI</th>
@@ -948,7 +948,7 @@
 
       if (!tenVietTat) { showAlert('error', 'Vui lòng chọn nghiên cứu trong danh sách.'); $('researchInput').focus(); return; }
       if (!taskName) { showAlert('error', 'Vui lòng nhập tên công việc.'); $('taskName').focus(); return; }
-      if (!provider) { showAlert('error', 'Vui lòng nhập tên người giao việc.'); $('taskProvider').focus(); return; }
+      if (!provider) { showAlert('error', 'Vui lòng nhập tên người tạo công việc.'); $('taskProvider').focus(); return; }
       if (!priority) { showAlert('error', 'Vui lòng chọn mức độ ưu tiên.'); return; }
       if (docs && (!/^\d+$/.test(docs))) { showAlert('error', 'Số lượng tài liệu chỉ nhận số nguyên ≥ 0.'); $('documentCount').focus(); return; }
 
@@ -1260,7 +1260,7 @@
     function exportCsv() {
       var rows = filteredTasks();
       if (!rows.length) { showAlert('error', 'Không có công việc nào để xuất.'); return; }
-      var header = ['Tên viết tắt', 'Mã nghiên cứu', 'Tên công việc', 'Người ký', 'Ngày giao', 'Người giao', 'Ưu tiên', 'Số lượng', 'Trạng thái', 'Lý do hủy', 'Ghi chú'];
+      var header = ['Tên viết tắt', 'Mã nghiên cứu', 'Tên công việc', 'Người ký', 'Ngày giao', 'Người tạo', 'Ưu tiên', 'Số lượng', 'Trạng thái', 'Lý do hủy', 'Ghi chú'];
       var lines = [header].concat(rows.map(function (t) {
         return [t.tenVietTat, t.maNghienCuu, t.name, t.signer, t.startDate, t.provider, t.status, t.progress, t.taskStatus, t.cancelReason, t.note];
       }));
@@ -1631,7 +1631,7 @@
       var rows = allTasks.filter(function (t) { return t.tenVietTat === detailData.abbr; });
       lines.push([]);
       lines.push(['CÔNG VIỆC (' + rows.length + ')', '']);
-      lines.push(['Tên công việc', 'Ngày giao', 'Người giao', 'Người ký', 'Ưu tiên', 'Số tài liệu', 'Trạng thái', 'Lý do hủy', 'Ghi chú']);
+      lines.push(['Tên công việc', 'Ngày giao', 'Người tạo', 'Người ký', 'Ưu tiên', 'Số tài liệu', 'Trạng thái', 'Lý do hủy', 'Ghi chú']);
       rows.forEach(function (t) {
         lines.push([t.name, t.startDate, t.provider, t.signer, t.status, t.progress, t.taskStatus, t.cancelReason, t.note]);
       });
