@@ -1201,8 +1201,7 @@
       $('taskTableBody').innerHTML = visible.map(function (t) {
         var pr = PRIORITIES.filter(function (p) { return p.value === t.status; })[0] || PRIORITIES[1];
         // Không hiển thị link folder trên web vì lý do bảo mật — link vẫn lưu ở cột H của sheet
-        var docsCell = escapeHtml(String(t.progress || 0)) + ' tệp' +
-                       (t.hasFiles ? '<div style="font-size:11px;color:var(--slate)">đã có folder</div>' : '');
+        var docsCell = escapeHtml(String(t.progress || 0)) + ' tệp';
         var options = STATUS_ORDER.map(function (s) {
           return '<option value="' + s + '"' + (s === t.taskStatus ? ' selected' : '') + '>' + s + '</option>';
         }).join('');
