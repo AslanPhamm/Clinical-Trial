@@ -32,6 +32,7 @@
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
@@ -79,6 +80,7 @@
     .col-main { flex: 999 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
     .col-side { flex: 1 1 320px; min-width: 300px; display: flex; flex-direction: column; gap: 16px; }
     .col-full { flex: 1 1 100%; }
+    .stack { display: flex; flex-direction: column; gap: 16px; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
     .card h2 { margin: 0; font-family: 'Montserrat', sans-serif; font-size: 15px; font-weight: 700; }
     .card-hint { margin: 4px 0 16px; font-size: 13px; color: var(--slate); }
@@ -504,7 +506,7 @@
         <p>Gõ tên viết tắt hoặc mã nghiên cứu ở ô trên để xem toàn bộ thông tin trong sheet DATABASE.</p>
       </div>
 
-      <div class="col-full" id="detailBody" hidden style="display: flex; flex-direction: column; gap: 16px">
+      <div class="col-full stack" id="detailBody" hidden>
         <div class="card" id="detailHeadCard"></div>
         <div class="kpis" id="detailStats"></div>
 
@@ -656,7 +658,7 @@
         <p>Gõ tên viết tắt hoặc mã nghiên cứu ở ô trên để xem toàn bộ thông tin trong sheet DATABASE.</p>
       </div>
 
-      <div class="col-full" id="detailBody" hidden style="display: flex; flex-direction: column; gap: 16px">
+      <div class="col-full stack" id="detailBody" hidden>
         <div class="card" id="detailHeadCard"></div>
         <div class="kpis" id="detailStats"></div>
 
@@ -764,7 +766,7 @@
       });
       if (name === 'tracker') loadTasks();
       if (name === 'feedback') loadFeedback();
-      if (name === 'detail' && !detailData && trackerStudy) openDetail(trackerStudy);
+      if (name === 'detail' && !detailData && trackerStudy) loadDetailData(trackerStudy);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -1373,6 +1375,11 @@
     function openDetail(abbr) {
       if (!abbr) return;
       switchTab('detail');
+      loadDetailData(abbr);
+    }
+
+    function loadDetailData(abbr) {
+      if (!abbr) return;
       $('detailList').hidden = true;
       $('detailSearch').value = abbr;
       $('detailEmpty').hidden = false;
@@ -1602,7 +1609,7 @@
         $('updateSaveText').textContent = 'LƯU CẬP NHẬT';
         if (result && result.success) {
           showAlert('success', result.message);
-          openDetail(detailData.abbr);
+          loadDetailData(detailData.abbr);
           google.script.run.withSuccessHandler(function (res) {
             if (res && res.success) { researchData = res.data; $('totalResearch').textContent = res.total; }
           }).getResearchList();
