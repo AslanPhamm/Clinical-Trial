@@ -481,46 +481,7 @@
             <button type="button" class="btn-primary" style="margin-top: 10px" onclick="switchTab('assignment')">Giao việc mới</button>
           </div>
         </div>
-    
-    <!-- ================= TAB 4: CHI TIẾT NGHIÊN CỨU ================= -->
-    <section class="page" id="detailTab" hidden>
-      <div class="col-full card" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end">
-        <div style="flex: 999 1 420px; min-width: 0">
-          <label class="label" for="detailSearch">Chọn nghiên cứu</label>
-          <div class="combo">
-            <input class="input" id="detailSearch" type="text" autocomplete="off"
-                   placeholder="Gõ tên viết tắt, mã nghiên cứu hoặc khoa"
-                   oninput="onDetailSearch()" onfocus="onDetailSearch()" onblur="hideDetailListLater()">
-            <div class="combo-list" id="detailList" hidden></div>
-          </div>
-        </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap" id="detailActions" hidden>
-          <button type="button" class="btn-primary" onclick="toggleUpdateForm()" id="updateToggleBtn">CẬP NHẬT ĐỊNH KỲ</button>
-          <button type="button" class="btn-secondary" onclick="assignFromDetail()">Giao việc cho nghiên cứu này</button>
-          <button type="button" class="btn-secondary" onclick="exportStudyReport()">Xuất báo cáo</button>
-        </div>
-      </div>
-
-      <div class="col-full empty" id="detailEmpty">
-        <p style="font-size: 15px; font-weight: 600; color: var(--ink)">Chưa chọn nghiên cứu</p>
-        <p>Gõ tên viết tắt hoặc mã nghiên cứu ở ô trên để xem toàn bộ thông tin trong sheet DATABASE.</p>
-      </div>
-
-      <div class="col-full stack" id="detailBody" hidden>
-        <div class="card" id="detailHeadCard"></div>
-        <div class="kpis" id="detailStats"></div>
-
-        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
-          <div class="card" style="flex: 999 1 560px; min-width: 0" id="detailFunnel"></div>
-          <div class="card" style="flex: 1 1 320px; min-width: 288px" id="detailTeam"></div>
-        </div>
-
-        <div class="card" id="detailTasks"></div>
-
-        <form class="card" id="updateForm" hidden></form>
-      </div>
-    </section>
-  </main>
+      </main>
     </section>
 
     <!-- ================= TAB 3: GÓP Ý ================= -->
