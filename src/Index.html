@@ -739,7 +739,13 @@
         if (result && result.success) {
           allTasks = result.data;
           $('totalTasks').textContent = result.data.length;
+        } else {
+          $('totalTasks').textContent = '0';
+          showAlert('error', (result && result.message) || 'Không đọc được sheet TASK');
         }
+      }).withFailureHandler(function (err) {
+        $('totalTasks').textContent = '0';
+        showAlert('error', 'Không đọc được danh sách công việc: ' + (err.message || err));
       }).getTaskList();
     }
 
@@ -960,8 +966,10 @@
           allTasks = result.data;
           $('totalTasks').textContent = result.data.length;
           renderTasks();
-        } else if (result) {
-          showAlert('error', result.message || 'Không tải được danh sách công việc');
+        } else {
+          allTasks = [];
+          renderTasks();
+          showAlert('error', (result && result.message) || 'Không tải được danh sách công việc');
         }
       }).withFailureHandler(function (err) {
         $('taskLoading').classList.remove('show');

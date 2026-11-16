@@ -112,7 +112,12 @@ function getTaskSheet_(ss) {
     return taskSheet;
   }
 
-  // Bổ sung các cột mới (J, K, L) cho sheet đã tạo từ phiên bản trước
+  // Nới lưới nếu sheet hẹp hơn số cột cần dùng
+  if (taskSheet.getMaxColumns() < TASK_HEADERS.length) {
+    taskSheet.insertColumnsAfter(taskSheet.getMaxColumns(), TASK_HEADERS.length - taskSheet.getMaxColumns());
+  }
+
+  // Bổ sung tiêu đề các cột mới (J, K, L) cho sheet đã tạo từ phiên bản trước
   if (taskSheet.getLastColumn() < TASK_HEADERS.length) {
     const start = taskSheet.getLastColumn() + 1;
     const missing = TASK_HEADERS.slice(start - 1);
@@ -209,34 +214,58 @@ function getTaskList() {
   try {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     const taskSheet = ss.getSheetByName(CONFIG.TASK_SHEET);
-    if (!taskSheet || taskSheet.getLastRow() < 2) return { success: true, data: [] };
+    if (!taskSheet) {
+      return { success: false, message: 'Không tìm thấy sheet "' + CONFIG.TASK_SHEET + '"' };
+    }
 
     const lastRow = taskSheet.getLastRow();
-    const colCount = Math.max(taskSheet.getLastColumn(), TASK_HEADERS.length);
-    const data = taskSheet.getRange(2, 1, lastRow - 1, colCount).getValues();
+    if (lastRow < 2) return { success: true, data: [], total: 0 };
 
-    const tasks = data.map(function (row, index) {
-      const rawStatus = String(row[9] || '').trim();
-      return {
+    // Chỉ đọc trong phạm vi lưới thật của sheet (sheet cũ có thể hẹp hơn 12 cột)
+    const colCount = Math.min(
+      Math.max(taskSheet.getLastColumn(), TASK_HEADERS.length),
+      taskSheet.getMaxColumns()
+    );
+    const data = taskSheet.getRange(2, 1, lastRow - 1, colCount).getValues();
+    const tz = Session.getScriptTimeZone();
+
+    const tasks = [];
+    data.forEach(function (row, index) {
+      const abbr = String(row[0] == null ? '' : row[0]).trim();
+      const name = String(row[2] == null ? '' : row[2]).trim();
+      if (!abbr && !name) return; // bỏ qua dòng trống
+
+      let startDate = row[3];
+      if (startDate instanceof Date) {
+        startDate = Utilities.formatDate(startDate, tz, 'dd/MM/yyyy');
+      } else {
+        startDate = String(startDate == null ? '' : startDate).trim();
+      }
+
+      const rawStatus = String(row[9] == null ? '' : row[9]).trim();
+
+      tasks.push({
         stt: index + 1,
         row: index + 2,               // số dòng thật trên sheet
-        tenVietTat: row[0],
-        maNghienCuu: row[1],
-        name: row[2],
-        startDate: row[3],
-        provider: row[4],
-        status: row[5],               // Ưu tiên (Low/Medium/High)
-        progress: row[6],             // Số lượng tài liệu
-        files: row[7],                // Link folder
-        note: row[8],
+        tenVietTat: abbr,
+        maNghienCuu: String(row[1] == null ? '' : row[1]).trim(),
+        name: name,
+        startDate: startDate,
+        provider: String(row[4] == null ? '' : row[4]).trim(),
+        status: String(row[5] == null ? '' : row[5]).trim(),   // Ưu tiên (Low/Medium/High)
+        progress: row[6] == null ? '' : row[6],                // Số lượng tài liệu
+        files: String(row[7] == null ? '' : row[7]).trim(),    // Link folder
+        note: String(row[8] == null ? '' : row[8]).trim(),
         taskStatus: TASK_STATUSES.indexOf(rawStatus) !== -1 ? rawStatus : DEFAULT_TASK_STATUS,
-        cancelReason: String(row[10] || '').trim(),
-        signer: String(row[11] || '').trim()
-      };
+        cancelReason: String(row[10] == null ? '' : row[10]).trim(),
+        signer: String(row[11] == null ? '' : row[11]).trim()
+      });
     });
-    return { success: true, data: tasks.reverse() };
+
+    tasks.reverse();
+    return { success: true, data: tasks, total: tasks.length };
   } catch (error) {
-    return { success: false, message: 'Lỗi: ' + error.message };
+    return { success: false, message: 'Lỗi khi đọc sheet TASK: ' + error.message };
   }
 }
 
