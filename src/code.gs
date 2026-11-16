@@ -18,12 +18,15 @@ const DEFAULT_TASK_STATUS = 'Đang thực hiện';
 
 // A: Tên viết tắt | B: Mã nghiên cứu | C: Tên công việc | D: Ngày | E: Người giao
 // F: Ưu tiên | G: Số lượng | H: Link folder | I: Ghi chú
-// J: Trạng thái | K: Lý do hủy | L: Nhóm công việc
+// J: Trạng thái | K: Lý do hủy | L: Người ký
 const TASK_HEADERS = [
   'Tên viết tắt', 'Mã nghiên cứu', 'Tên công việc', 'Ngày', 'Người giao',
   'Ưu tiên', 'Số lượng', 'Link folder', 'Ghi chú',
-  'Trạng thái', 'Lý do hủy', 'Nhóm công việc'
+  'Trạng thái', 'Lý do hủy', 'Người ký'
 ];
+
+// Danh sách người ký (khớp danh sách trong Google Sheet)
+const SIGNERS = ['PGS.Thanh', 'PGS.Toàn', 'PGS.Quế', 'ThS.Vinh'];
 
 // A: Ngày | B: Loại góp ý | C: Màn hình | D: Nghiên cứu | E: Nội dung
 // F: Link ảnh | G: Người gửi | H: Liên hệ | I: Trạng thái | J: Ghi chú xử lý
@@ -109,7 +112,12 @@ function getTaskSheet_(ss) {
     return taskSheet;
   }
 
-  // Bổ sung các cột mới (J, K, L) cho sheet đã tạo từ phiên bản trước
+  // Nới lưới nếu sheet hẹp hơn số cột cần dùng
+  if (taskSheet.getMaxColumns() < TASK_HEADERS.length) {
+    taskSheet.insertColumnsAfter(taskSheet.getMaxColumns(), TASK_HEADERS.length - taskSheet.getMaxColumns());
+  }
+
+  // Bổ sung tiêu đề các cột mới (J, K, L) cho sheet đã tạo từ phiên bản trước
   if (taskSheet.getLastColumn() < TASK_HEADERS.length) {
     const start = taskSheet.getLastColumn() + 1;
     const missing = TASK_HEADERS.slice(start - 1);
@@ -150,7 +158,7 @@ function uploadFilesToFolder_(parentFolderId, folderName, files) {
 
 function createTask(taskData) {
   try {
-    const { tenVietTat, taskName, note, documentCount, provider, status, taskGroup, files } = taskData;
+    const { tenVietTat, taskName, note, documentCount, provider, status, signer, files } = taskData;
     if (!tenVietTat || !taskName) {
       return { success: false, message: 'Vui lòng chọn nghiên cứu và nhập tên công việc' };
     }
@@ -180,7 +188,7 @@ function createTask(taskData) {
       note || '',                   // I: Ghi chú
       DEFAULT_TASK_STATUS,          // J: Trạng thái
       '',                           // K: Lý do hủy
-      taskGroup || ''               // L: Nhóm công việc
+      SIGNERS.indexOf(signer) !== -1 ? signer : ''   // L: Người ký
     ];
     taskSheet.appendRow(newRow);
 
@@ -206,34 +214,58 @@ function getTaskList() {
   try {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     const taskSheet = ss.getSheetByName(CONFIG.TASK_SHEET);
-    if (!taskSheet || taskSheet.getLastRow() < 2) return { success: true, data: [] };
+    if (!taskSheet) {
+      return { success: false, message: 'Không tìm thấy sheet "' + CONFIG.TASK_SHEET + '"' };
+    }
 
     const lastRow = taskSheet.getLastRow();
-    const colCount = Math.max(taskSheet.getLastColumn(), TASK_HEADERS.length);
-    const data = taskSheet.getRange(2, 1, lastRow - 1, colCount).getValues();
+    if (lastRow < 2) return { success: true, data: [], total: 0 };
 
-    const tasks = data.map(function (row, index) {
-      const rawStatus = String(row[9] || '').trim();
-      return {
+    // Chỉ đọc trong phạm vi lưới thật của sheet (sheet cũ có thể hẹp hơn 12 cột)
+    const colCount = Math.min(
+      Math.max(taskSheet.getLastColumn(), TASK_HEADERS.length),
+      taskSheet.getMaxColumns()
+    );
+    const data = taskSheet.getRange(2, 1, lastRow - 1, colCount).getValues();
+    const tz = Session.getScriptTimeZone();
+
+    const tasks = [];
+    data.forEach(function (row, index) {
+      const abbr = String(row[0] == null ? '' : row[0]).trim();
+      const name = String(row[2] == null ? '' : row[2]).trim();
+      if (!abbr && !name) return; // bỏ qua dòng trống
+
+      let startDate = row[3];
+      if (startDate instanceof Date) {
+        startDate = Utilities.formatDate(startDate, tz, 'dd/MM/yyyy');
+      } else {
+        startDate = String(startDate == null ? '' : startDate).trim();
+      }
+
+      const rawStatus = String(row[9] == null ? '' : row[9]).trim();
+
+      tasks.push({
         stt: index + 1,
         row: index + 2,               // số dòng thật trên sheet
-        tenVietTat: row[0],
-        maNghienCuu: row[1],
-        name: row[2],
-        startDate: row[3],
-        provider: row[4],
-        status: row[5],               // Ưu tiên (Low/Medium/High)
-        progress: row[6],             // Số lượng tài liệu
-        files: row[7],                // Link folder
-        note: row[8],
+        tenVietTat: abbr,
+        maNghienCuu: String(row[1] == null ? '' : row[1]).trim(),
+        name: name,
+        startDate: startDate,
+        provider: String(row[4] == null ? '' : row[4]).trim(),
+        status: String(row[5] == null ? '' : row[5]).trim(),   // Ưu tiên (Low/Medium/High)
+        progress: row[6] == null ? '' : row[6],                // Số lượng tài liệu
+        files: String(row[7] == null ? '' : row[7]).trim(),    // Link folder
+        note: String(row[8] == null ? '' : row[8]).trim(),
         taskStatus: TASK_STATUSES.indexOf(rawStatus) !== -1 ? rawStatus : DEFAULT_TASK_STATUS,
-        cancelReason: String(row[10] || '').trim(),
-        taskGroup: String(row[11] || '').trim()
-      };
+        cancelReason: String(row[10] == null ? '' : row[10]).trim(),
+        signer: String(row[11] == null ? '' : row[11]).trim()
+      });
     });
-    return { success: true, data: tasks.reverse() };
+
+    tasks.reverse();
+    return { success: true, data: tasks, total: tasks.length };
   } catch (error) {
-    return { success: false, message: 'Lỗi: ' + error.message };
+    return { success: false, message: 'Lỗi khi đọc sheet TASK: ' + error.message };
   }
 }
 
@@ -255,6 +287,138 @@ function updateTaskStatus(rowNumber, newStatus, cancelReason) {
     return { success: true, message: 'Đã cập nhật trạng thái', data: { row: row, taskStatus: newStatus } };
   } catch (error) {
     return { success: false, message: 'Lỗi: ' + error.message };
+  }
+}
+
+// ==================== CHI TIẾT NGHIÊN CỨU (sheet DATABASE) ====================
+// Các cột định danh: chỉ đọc trên giao diện, muốn sửa thì sửa thẳng trên sheet
+const DB_READONLY_FIELDS = [
+  'Tên nghiên cứu', 'Tên viết tắt', 'Mã nghiên cứu',
+  'Nghiên cứu viên chính', 'Khoa thực hiện', 'Nhà tài trợ'
+];
+
+function normalizeHeader_(h) {
+  return String(h == null ? '' : h).replace(/\s+/g, ' ').trim();
+}
+
+function cellToString_(value, tz) {
+  if (value == null) return '';
+  if (value instanceof Date) return Utilities.formatDate(value, tz, 'dd/MM/yyyy');
+  if (value === true) return 'TRUE';
+  if (value === false) return 'FALSE';
+  return String(value).trim();
+}
+
+/**
+ * Đọc toàn bộ thông tin một nghiên cứu từ sheet DATABASE.
+ * key: tên viết tắt hoặc mã nghiên cứu.
+ */
+function getResearchDetail(key) {
+  try {
+    const needle = String(key || '').trim().toLowerCase();
+    if (!needle) return { success: false, message: 'Chưa chọn nghiên cứu' };
+
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const dbSheet = ss.getSheetByName(CONFIG.DATABASE_SHEET);
+    if (!dbSheet) return { success: false, message: 'Không tìm thấy sheet "' + CONFIG.DATABASE_SHEET + '"' };
+
+    const lastRow = dbSheet.getLastRow();
+    const lastCol = dbSheet.getLastColumn();
+    if (lastRow < 2) return { success: false, message: 'Sheet DATABASE chưa có dữ liệu' };
+
+    const data = dbSheet.getRange(1, 1, lastRow, lastCol).getValues();
+    const headers = data[0].map(normalizeHeader_);
+    const abbrIdx = headers.indexOf('Tên viết tắt');
+    const codeIdx = headers.indexOf('Mã nghiên cứu');
+    const tz = Session.getScriptTimeZone();
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const abbr = abbrIdx !== -1 ? cellToString_(row[abbrIdx], tz) : '';
+      const code = codeIdx !== -1 ? cellToString_(row[codeIdx], tz) : '';
+      if (abbr.toLowerCase() === needle || code.toLowerCase() === needle) {
+        const values = {};
+        headers.forEach(function (h, idx) {
+          if (h) values[h] = cellToString_(row[idx], tz);
+        });
+        return {
+          success: true,
+          data: {
+            row: i + 1,
+            abbr: abbr,
+            code: code,
+            headers: headers.filter(function (h) { return !!h; }),
+            readonlyFields: DB_READONLY_FIELDS,
+            values: values
+          }
+        };
+      }
+    }
+    return { success: false, message: 'Không tìm thấy nghiên cứu: ' + key };
+  } catch (error) {
+    return { success: false, message: 'Lỗi khi đọc sheet DATABASE: ' + error.message };
+  }
+}
+
+/**
+ * Ghi cập nhật định kỳ thẳng vào dòng tương ứng của sheet DATABASE.
+ * payload = { row, abbr, values: { '<tên cột>': '<giá trị>' } }
+ */
+function updateResearch(payload) {
+  try {
+    const row = parseInt(payload && payload.row, 10);
+    const values = (payload && payload.values) || {};
+    if (!row || row < 2) return { success: false, message: 'Dòng nghiên cứu không hợp lệ' };
+
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const dbSheet = ss.getSheetByName(CONFIG.DATABASE_SHEET);
+    if (!dbSheet) return { success: false, message: 'Không tìm thấy sheet "' + CONFIG.DATABASE_SHEET + '"' };
+    if (row > dbSheet.getLastRow()) return { success: false, message: 'Không tìm thấy dòng nghiên cứu' };
+
+    const lastCol = dbSheet.getLastColumn();
+    const headers = dbSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(normalizeHeader_);
+    const abbrIdx = headers.indexOf('Tên viết tắt');
+
+    // Kiểm tra đúng dòng trước khi ghi, tránh ghi nhầm khi sheet bị chèn/xóa dòng
+    const current = dbSheet.getRange(row, 1, 1, lastCol).getValues()[0];
+    if (payload.abbr && abbrIdx !== -1) {
+      const currentAbbr = normalizeHeader_(current[abbrIdx]);
+      if (currentAbbr !== normalizeHeader_(payload.abbr)) {
+        return {
+          success: false,
+          message: 'Dòng ' + row + ' hiện là "' + currentAbbr + '" chứ không phải "' + payload.abbr +
+                   '". Sheet có thể vừa thay đổi, hãy tải lại trang rồi cập nhật lại.'
+        };
+      }
+    }
+
+    const updated = [];
+    const skipped = [];
+    Object.keys(values).forEach(function (key) {
+      const header = normalizeHeader_(key);
+      if (DB_READONLY_FIELDS.indexOf(header) !== -1) { skipped.push(header); return; }
+      const idx = headers.indexOf(header);
+      if (idx === -1) { skipped.push(header); return; }
+      const newValue = values[key] == null ? '' : values[key];
+      if (cellToString_(current[idx], Session.getScriptTimeZone()) !== String(newValue).trim()) {
+        current[idx] = newValue;
+        updated.push(header);
+      }
+    });
+
+    if (updated.length) {
+      dbSheet.getRange(row, 1, 1, lastCol).setValues([current]);
+    }
+
+    return {
+      success: true,
+      message: updated.length
+        ? 'Đã cập nhật ' + updated.length + ' trường vào sheet DATABASE'
+        : 'Không có trường nào thay đổi',
+      data: { row: row, updated: updated, skipped: skipped }
+    };
+  } catch (error) {
+    return { success: false, message: 'Lỗi khi ghi sheet DATABASE: ' + error.message };
   }
 }
 

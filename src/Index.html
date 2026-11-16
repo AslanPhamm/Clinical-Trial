@@ -269,6 +269,7 @@
     <div class="tabs">
       <button type="button" class="tab active" data-tab="assignment" onclick="switchTab('assignment')">GIAO VIỆC</button>
       <button type="button" class="tab" data-tab="tracker" onclick="switchTab('tracker')">THEO DÕI TIẾN ĐỘ</button>
+      <button type="button" class="tab" data-tab="detail" onclick="switchTab('detail')">CHI TIẾT NGHIÊN CỨU</button>
       <button type="button" class="tab" data-tab="feedback" onclick="switchTab('feedback')">GÓP Ý</button>
     </div>
   </nav>
@@ -317,14 +318,13 @@
             </div>
 
             <div class="field">
-              <label class="label" for="taskGroup">Nhóm công việc</label>
-              <div class="combo">
-                <input class="input" id="taskGroup" type="text" autocomplete="off"
-                       placeholder="Chọn nhóm có sẵn hoặc gõ tên nhóm mới"
-                       oninput="onGroupInput()" onfocus="onGroupInput()" onblur="hideGroupListLater()">
-                <div class="combo-list" id="groupList" hidden></div>
-              </div>
-              <p class="hint">Không có nhóm phù hợp? Gõ tên nhóm mới, danh sách sẽ ghi nhận để dùng cho các lần giao việc sau.</p>
+              <label class="label" for="taskSigner">Người ký</label>
+              <select class="select" id="taskSigner">
+                <option>PGS.Thanh</option>
+                <option>PGS.Toàn</option>
+                <option>PGS.Quế</option>
+                <option>ThS.Vinh</option>
+              </select>
             </div>
 
             <div class="field grid-2">
@@ -419,6 +419,7 @@
           <div class="ctx-head">
             <h2 id="ctxHeading">Tất cả nghiên cứu</h2>
             <span class="chip-outline" id="ctxCode" hidden>-</span>
+            <button type="button" class="btn-secondary" id="ctxDetailBtn" style="margin-left: auto" hidden onclick="openDetail(trackerStudy)">Xem chi tiết nghiên cứu</button>
           </div>
           <p class="card-hint" style="margin: 0" id="ctxSub">Chọn một nghiên cứu ở cột bên trái để xem tiến độ riêng của nghiên cứu đó.</p>
 
@@ -478,7 +479,46 @@
             <button type="button" class="btn-primary" style="margin-top: 10px" onclick="switchTab('assignment')">Giao việc mới</button>
           </div>
         </div>
-      </main>
+    
+    <!-- ================= TAB 4: CHI TIẾT NGHIÊN CỨU ================= -->
+    <section class="page" id="detailTab" hidden>
+      <div class="col-full card" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end">
+        <div style="flex: 999 1 420px; min-width: 0">
+          <label class="label" for="detailSearch">Chọn nghiên cứu</label>
+          <div class="combo">
+            <input class="input" id="detailSearch" type="text" autocomplete="off"
+                   placeholder="Gõ tên viết tắt, mã nghiên cứu hoặc khoa"
+                   oninput="onDetailSearch()" onfocus="onDetailSearch()" onblur="hideDetailListLater()">
+            <div class="combo-list" id="detailList" hidden></div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap" id="detailActions" hidden>
+          <button type="button" class="btn-primary" onclick="toggleUpdateForm()" id="updateToggleBtn">CẬP NHẬT ĐỊNH KỲ</button>
+          <button type="button" class="btn-secondary" onclick="assignFromDetail()">Giao việc cho nghiên cứu này</button>
+          <button type="button" class="btn-secondary" onclick="exportStudyReport()">Xuất báo cáo</button>
+        </div>
+      </div>
+
+      <div class="col-full empty" id="detailEmpty">
+        <p style="font-size: 15px; font-weight: 600; color: var(--ink)">Chưa chọn nghiên cứu</p>
+        <p>Gõ tên viết tắt hoặc mã nghiên cứu ở ô trên để xem toàn bộ thông tin trong sheet DATABASE.</p>
+      </div>
+
+      <div class="col-full" id="detailBody" hidden style="display: flex; flex-direction: column; gap: 16px">
+        <div class="card" id="detailHeadCard"></div>
+        <div class="kpis" id="detailStats"></div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+          <div class="card" style="flex: 999 1 560px; min-width: 0" id="detailFunnel"></div>
+          <div class="card" style="flex: 1 1 320px; min-width: 288px" id="detailTeam"></div>
+        </div>
+
+        <div class="card" id="detailTasks"></div>
+
+        <form class="card" id="updateForm" hidden></form>
+      </div>
+    </section>
+  </main>
     </section>
 
     <!-- ================= TAB 3: GÓP Ý ================= -->
@@ -591,6 +631,45 @@
         </div>
       </section>
     </section>
+
+    <!-- ================= TAB 4: CHI TIẾT NGHIÊN CỨU ================= -->
+    <section class="page" id="detailTab" hidden>
+      <div class="col-full card" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end">
+        <div style="flex: 999 1 420px; min-width: 0">
+          <label class="label" for="detailSearch">Chọn nghiên cứu</label>
+          <div class="combo">
+            <input class="input" id="detailSearch" type="text" autocomplete="off"
+                   placeholder="Gõ tên viết tắt, mã nghiên cứu hoặc khoa"
+                   oninput="onDetailSearch()" onfocus="onDetailSearch()" onblur="hideDetailListLater()">
+            <div class="combo-list" id="detailList" hidden></div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap" id="detailActions" hidden>
+          <button type="button" class="btn-primary" onclick="toggleUpdateForm()" id="updateToggleBtn">CẬP NHẬT ĐỊNH KỲ</button>
+          <button type="button" class="btn-secondary" onclick="assignFromDetail()">Giao việc cho nghiên cứu này</button>
+          <button type="button" class="btn-secondary" onclick="exportStudyReport()">Xuất báo cáo</button>
+        </div>
+      </div>
+
+      <div class="col-full empty" id="detailEmpty">
+        <p style="font-size: 15px; font-weight: 600; color: var(--ink)">Chưa chọn nghiên cứu</p>
+        <p>Gõ tên viết tắt hoặc mã nghiên cứu ở ô trên để xem toàn bộ thông tin trong sheet DATABASE.</p>
+      </div>
+
+      <div class="col-full" id="detailBody" hidden style="display: flex; flex-direction: column; gap: 16px">
+        <div class="card" id="detailHeadCard"></div>
+        <div class="kpis" id="detailStats"></div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+          <div class="card" style="flex: 999 1 560px; min-width: 0" id="detailFunnel"></div>
+          <div class="card" style="flex: 1 1 320px; min-width: 288px" id="detailTeam"></div>
+        </div>
+
+        <div class="card" id="detailTasks"></div>
+
+        <form class="card" id="updateForm" hidden></form>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
@@ -642,12 +721,6 @@
       { label: 'Cao', value: 'High', color: '#B4440E', bg: '#FDF0E7', fg: '#8F330A' }
     ];
 
-    var BASE_GROUPS = [
-      'Nhập dữ liệu eCRF', 'Hồ sơ IRB / LEC', 'Báo cáo AE / SAE', 'Theo dõi bệnh nhân (visit)',
-      'Quản lý thuốc nghiên cứu', 'Lưu trữ tài liệu (TMF)', 'Chuẩn bị monitoring visit'
-    ];
-    var customGroups = [];
-
     var STATUS_META = {
       'Chờ xử lý':      { fg: '#35495A', bg: '#EEF2F5', border: '#8EA1B0', dot: '#5C6F7E' },
       'Đang thực hiện': { fg: '#084A80', bg: '#EAF2FA', border: '#0B5FA5', dot: '#0B5FA5' },
@@ -684,13 +757,14 @@
     }
 
     function switchTab(name) {
-      var tabs = { assignment: 'assignmentTab', tracker: 'trackerTab', feedback: 'feedbackTab' };
+      var tabs = { assignment: 'assignmentTab', tracker: 'trackerTab', detail: 'detailTab', feedback: 'feedbackTab' };
       Object.keys(tabs).forEach(function (key) { $(tabs[key]).hidden = key !== name; });
       document.querySelectorAll('.tab').forEach(function (btn) {
         btn.classList.toggle('active', btn.getAttribute('data-tab') === name);
       });
       if (name === 'tracker') loadTasks();
       if (name === 'feedback') loadFeedback();
+      if (name === 'detail' && !detailData && trackerStudy) openDetail(trackerStudy);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -746,16 +820,14 @@
         if (result && result.success) {
           allTasks = result.data;
           $('totalTasks').textContent = result.data.length;
-          collectGroupsFromTasks();
+        } else {
+          $('totalTasks').textContent = '0';
+          showAlert('error', (result && result.message) || 'Không đọc được sheet TASK');
         }
+      }).withFailureHandler(function (err) {
+        $('totalTasks').textContent = '0';
+        showAlert('error', 'Không đọc được danh sách công việc: ' + (err.message || err));
       }).getTaskList();
-    }
-
-    function collectGroupsFromTasks() {
-      allTasks.forEach(function (t) {
-        var g = String(t.taskGroup || '').trim();
-        if (g && BASE_GROUPS.indexOf(g) === -1 && customGroups.indexOf(g) === -1) customGroups.push(g);
-      });
     }
 
     // ==================== TAB 1: CHỌN NGHIÊN CỨU ====================
@@ -824,49 +896,6 @@
       $('infoDept').textContent = r.khoa || '-';
       $('infoSponsor').textContent = r.nhaTaiTro || '-';
       $('researchInfo').hidden = false;
-    }
-
-    // ==================== TAB 1: NHÓM CÔNG VIỆC ====================
-    function allGroups() { return BASE_GROUPS.concat(customGroups); }
-
-    function onGroupInput() {
-      var raw = $('taskGroup').value.trim();
-      var q = raw.toLowerCase();
-      var groups = allGroups();
-      var matches = groups.filter(function (g) { return !q || g.toLowerCase().indexOf(q) !== -1; });
-      var exists = groups.some(function (g) { return g.toLowerCase() === q; });
-
-      var html = '';
-      if (raw && !exists) {
-        html += '<button type="button" class="combo-item create" onmousedown="createGroup(\'' + escapeHtml(raw).replace(/'/g, "\\'") + '\')">' +
-                  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>' +
-                  '<span class="combo-item-body">Tạo nhóm mới: “' + escapeHtml(raw) + '”</span>' +
-                '</button>';
-      }
-      matches.forEach(function (g) {
-        var isNew = customGroups.indexOf(g) !== -1;
-        html += '<button type="button" class="combo-item" onmousedown="pickGroup(\'' + escapeHtml(g).replace(/'/g, "\\'") + '\')">' +
-                  '<span class="combo-item-body">' + escapeHtml(g) + '</span>' +
-                  (isNew ? '<span class="combo-item-right" style="color: var(--primary-dark)">mới</span>' : '') +
-                '</button>';
-      });
-      if (!html) html = '<div class="combo-head">KHÔNG CÓ NHÓM PHÙ HỢP</div>';
-
-      $('groupList').innerHTML = html;
-      $('groupList').hidden = false;
-    }
-
-    function hideGroupListLater() { setTimeout(function () { $('groupList').hidden = true; }, 180); }
-
-    function pickGroup(name) {
-      $('taskGroup').value = name;
-      $('groupList').hidden = true;
-    }
-
-    function createGroup(name) {
-      if (customGroups.indexOf(name) === -1 && BASE_GROUPS.indexOf(name) === -1) customGroups.push(name);
-      pickGroup(name);
-      showAlert('success', 'Đã thêm nhóm công việc "' + name + '" vào danh sách.');
     }
 
     // ==================== TAB 1: ƯU TIÊN ====================
@@ -970,7 +999,7 @@
             documentCount: docs || 0,
             provider: provider,
             status: priority,
-            taskGroup: $('taskGroup').value.trim(),
+            signer: $('taskSigner').value,
             files: files
           });
       }).catch(function (err) { handleSubmitError(err); });
@@ -1017,10 +1046,11 @@
         if (result && result.success) {
           allTasks = result.data;
           $('totalTasks').textContent = result.data.length;
-          collectGroupsFromTasks();
           renderTasks();
-        } else if (result) {
-          showAlert('error', result.message || 'Không tải được danh sách công việc');
+        } else {
+          allTasks = [];
+          renderTasks();
+          showAlert('error', (result && result.message) || 'Không tải được danh sách công việc');
         }
       }).withFailureHandler(function (err) {
         $('taskLoading').classList.remove('show');
@@ -1151,6 +1181,7 @@
         $('ctxCode').hidden = !r.maNghienCuu;
         $('ctxSub').textContent = (r.khoa ? r.khoa + ' · ' : '') + base.length + ' công việc · ' + cancelled + ' đã hủy';
         $('ctxProgress').hidden = false;
+        $('ctxDetailBtn').hidden = false;
         var donePct = active ? Math.round(done / active * 100) : 0;
         var openPct = active ? Math.round((doing + pending) / active * 100) : 0;
         $('ctxDoneText').textContent = done + ' / ' + active + ' (' + donePct + '%, chưa tính việc đã hủy)';
@@ -1162,6 +1193,7 @@
         $('ctxCode').hidden = true;
         $('ctxSub').textContent = 'Chọn một nghiên cứu ở cột bên trái để xem tiến độ riêng của nghiên cứu đó.';
         $('ctxProgress').hidden = true;
+        $('ctxDetailBtn').hidden = true;
       }
 
       // KPI
@@ -1193,13 +1225,13 @@
           return '<option value="' + s + '"' + (s === t.taskStatus ? ' selected' : '') + '>' + s + '</option>';
         }).join('');
         var meta = STATUS_META[t.taskStatus] || STATUS_META['Đang thực hiện'];
-        var group = t.taskGroup ? escapeHtml(t.taskGroup) : '';
+        var sub = t.signer ? 'Người ký: ' + escapeHtml(t.signer) : '';
         if (t.taskStatus === 'Đã hủy' && t.cancelReason) {
-          group = (group ? group + ' · ' : '') + 'hủy: ' + escapeHtml(t.cancelReason);
+          sub = (sub ? sub + ' · ' : '') + 'hủy: ' + escapeHtml(t.cancelReason);
         }
 
         return '<tr>' +
-                 '<td><div class="task-name">' + escapeHtml(t.name) + '</div>' + (group ? '<div class="task-group">' + group + '</div>' : '') + '</td>' +
+                 '<td><div class="task-name">' + escapeHtml(t.name) + '</div>' + (sub ? '<div class="task-group">' + sub + '</div>' : '') + '</td>' +
                  '<td><div style="font-weight:600">' + escapeHtml(t.tenVietTat) + '</div><div style="font-size:11px;color:var(--slate);font-family:ui-monospace,monospace">' + escapeHtml(t.maNghienCuu) + '</div></td>' +
                  '<td style="white-space:nowrap">' + escapeHtml(t.startDate) + '</td>' +
                  '<td>' + escapeHtml(t.provider) + '</td>' +
@@ -1236,9 +1268,9 @@
     function exportCsv() {
       var rows = filteredTasks();
       if (!rows.length) { showAlert('error', 'Không có công việc nào để xuất.'); return; }
-      var header = ['Tên viết tắt', 'Mã nghiên cứu', 'Tên công việc', 'Nhóm công việc', 'Ngày giao', 'Người giao', 'Ưu tiên', 'Số lượng', 'Trạng thái', 'Lý do hủy', 'Link folder', 'Ghi chú'];
+      var header = ['Tên viết tắt', 'Mã nghiên cứu', 'Tên công việc', 'Người ký', 'Ngày giao', 'Người giao', 'Ưu tiên', 'Số lượng', 'Trạng thái', 'Lý do hủy', 'Link folder', 'Ghi chú'];
       var lines = [header].concat(rows.map(function (t) {
-        return [t.tenVietTat, t.maNghienCuu, t.name, t.taskGroup, t.startDate, t.provider, t.status, t.progress, t.taskStatus, t.cancelReason, t.files, t.note];
+        return [t.tenVietTat, t.maNghienCuu, t.name, t.signer, t.startDate, t.provider, t.status, t.progress, t.taskStatus, t.cancelReason, t.files, t.note];
       }));
       var csv = lines.map(function (line) {
         return line.map(function (cell) { return '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"'; }).join(',');
@@ -1251,6 +1283,375 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+
+
+    // ==================== TAB 4: CHI TIẾT NGHIÊN CỨU ====================
+    var detailData = null;
+
+    var DETAIL_GROUPS = [
+      {
+        title: 'Tình trạng & mốc thời gian',
+        fields: ['Tình trạng nghiên cứu', 'Thu tuyển cạnh tranh', 'Thời gian bắt đầu thu tuyển',
+                 'Thời gian dự kiến ngừng thu tuyển', 'Thời gian thu tuyển bệnh nhân đầu tiên tại Bệnh viện Thống Nhất',
+                 'Số quyết định triển khai']
+      },
+      {
+        title: 'Số lượng bệnh nhân',
+        numeric: true,
+        fields: ['Tổng số lượng bệnh nhân cần thu tuyển cho nghiên cứu',
+                 'Số lượng BN được phân ngẫu nhiên dự kiến cho site BVTN',
+                 'Tổng số lượng bệnh nhân đã thu tuyển ở tất cả các site',
+                 'Số lượng bệnh nhân đã thu tuyển tại Bệnh viện Thống Nhất',
+                 'Đã ký phiếu đồng ý tham gia nghiên cứu',
+                 'Số bệnh nhân được phân ngẫu nhiên',
+                 'Số bệnh nhân sàng lọc thất bại',
+                 'Số bệnh nhân đang điều trị',
+                 'Số bệnh nhân ngừng thuốc nghiên cứu nhưng tiếp tục theo dõi',
+                 'Số bệnh nhân hoàn tất điều trị',
+                 'Số bệnh nhân mất theo dõi',
+                 'Số bệnh nhân ngưng nghiên cứu sớm (do tử vong)']
+      },
+      { title: 'Biến cố bất lợi', numeric: true, fields: ['Số lượng AE', 'Số lượng SAE'] },
+      {
+        title: 'Nhân sự & đối tác',
+        fields: ['CRO (Contract Research Organization)', 'SMO (Site Management Organization)',
+                 'CRA (Clinical Research Associate)', "CRA's Phone", "CRA's Email",
+                 'CRC (Clinical Research Coordinator)', "CRC's Phone", "CRC's Email"]
+      }
+    ];
+
+    var STUDY_STATUS_OPTIONS = [
+      'Đang chạy, đã thu tuyển được bệnh nhân',
+      'Đang chạy, chờ thu tuyển bệnh nhân',
+      'Đã thông qua LEC',
+      'Đã kết thúc thu tuyển'
+    ];
+
+    function dv(name) {
+      if (!detailData) return '';
+      var v = detailData.values[name];
+      return v == null ? '' : String(v).trim();
+    }
+
+    function dnum(name) {
+      var raw = dv(name).replace(/\s/g, '');
+      if (!raw) return null;
+      var m = /^-?\d+$/.exec(raw);
+      return m ? parseInt(raw, 10) : null;
+    }
+
+    function onDetailSearch() {
+      var q = $('detailSearch').value.trim().toLowerCase();
+      var list = $('detailList');
+      var matches = researchData.filter(function (r) {
+        if (!q) return true;
+        return (r.tenVietTat + ' ' + r.maNghienCuu + ' ' + r.khoa + ' ' + r.nghienCuuVienChinh).toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 10);
+
+      if (!matches.length) {
+        list.innerHTML = '<div class="combo-head">KHÔNG TÌM THẤY NGHIÊN CỨU PHÙ HỢP</div>';
+        list.hidden = false;
+        return;
+      }
+
+      list.innerHTML = matches.map(function (r) {
+        var color = studyStatusColor(r.tinhTrang);
+        return '<button type="button" class="combo-item" onmousedown="openDetail(\'' + escapeHtml(r.tenVietTat).replace(/'/g, "\\'") + '\')">' +
+                 '<span class="dot" style="background:' + color + '"></span>' +
+                 '<span class="combo-item-body">' +
+                   '<span class="combo-item-title">' + escapeHtml(r.tenVietTat) + '</span>' +
+                   '<span class="combo-item-meta">' + escapeHtml(r.maNghienCuu) + (r.khoa ? ' · ' + escapeHtml(r.khoa) : '') + '</span>' +
+                 '</span>' +
+               '</button>';
+      }).join('');
+      list.hidden = false;
+    }
+
+    function hideDetailListLater() { setTimeout(function () { $('detailList').hidden = true; }, 180); }
+
+    function openDetail(abbr) {
+      if (!abbr) return;
+      switchTab('detail');
+      $('detailList').hidden = true;
+      $('detailSearch').value = abbr;
+      $('detailEmpty').hidden = false;
+      $('detailEmpty').innerHTML = '<p>Đang tải thông tin nghiên cứu…</p>';
+      $('detailBody').hidden = true;
+
+      google.script.run.withSuccessHandler(function (result) {
+        if (result && result.success) {
+          detailData = result.data;
+          renderDetail();
+        } else {
+          detailData = null;
+          $('detailBody').hidden = true;
+          $('detailEmpty').hidden = false;
+          $('detailEmpty').innerHTML = '<p style="font-size:15px;font-weight:600;color:var(--ink)">Không mở được nghiên cứu</p><p>' +
+                                       escapeHtml((result && result.message) || 'Lỗi không xác định') + '</p>';
+        }
+      }).withFailureHandler(function (err) {
+        showAlert('error', 'Không đọc được sheet DATABASE: ' + (err.message || err));
+      }).getResearchDetail(abbr);
+    }
+
+    function renderDetail() {
+      if (!detailData) return;
+      $('detailEmpty').hidden = true;
+      $('detailBody').hidden = false;
+      $('detailActions').hidden = false;
+
+      var status = dv('Tình trạng nghiên cứu');
+      var color = studyStatusColor(status);
+
+      $('detailHeadCard').innerHTML =
+        '<div class="ctx-head">' +
+          '<h2>' + escapeHtml(detailData.abbr) + '</h2>' +
+          '<span class="chip-outline">' + escapeHtml(detailData.code) + '</span>' +
+          '<span class="chip-outline" style="color:' + color + ';border-color:' + color + '">' + escapeHtml(status || '—') + '</span>' +
+          '<span style="margin-left:auto;font-size:12px;color:var(--slate)">Dòng ' + detailData.row + ' · sheet DATABASE</span>' +
+        '</div>' +
+        '<p class="study-title" style="margin-top:8px">' + escapeHtml(dv('Tên nghiên cứu') || '—') + '</p>' +
+        '<dl class="study-grid">' +
+          '<div><dt>NGHIÊN CỨU VIÊN CHÍNH</dt><dd>' + escapeHtml(dv('Nghiên cứu viên chính') || '—') + '</dd></div>' +
+          '<div><dt>KHOA THỰC HIỆN</dt><dd>' + escapeHtml(dv('Khoa thực hiện') || '—') + '</dd></div>' +
+          '<div><dt>NHÀ TÀI TRỢ</dt><dd>' + escapeHtml(dv('Nhà tài trợ') || '—') + '</dd></div>' +
+          '<div><dt>THỜI GIAN THU TUYỂN</dt><dd>' + escapeHtml((dv('Thời gian bắt đầu thu tuyển') || '—') + ' → ' + (dv('Thời gian dự kiến ngừng thu tuyển') || '—')) + '</dd></div>' +
+        '</dl>';
+
+      // Thẻ số liệu chính
+      var siteTarget = dv('Số lượng BN được phân ngẫu nhiên dự kiến cho site BVTN');
+      var stats = [
+        { label: 'ĐÃ THU TUYỂN TẠI BVTN', value: dv('Số lượng bệnh nhân đã thu tuyển tại Bệnh viện Thống Nhất') || '—', sub: 'dự kiến site: ' + (siteTarget || '—'), color: '#0E6E5B' },
+        { label: 'PHÂN NGẪU NHIÊN', value: dv('Số bệnh nhân được phân ngẫu nhiên') || '—', sub: 'tại BVTN', color: '#0B5FA5' },
+        { label: 'ĐANG ĐIỀU TRỊ', value: dv('Số bệnh nhân đang điều trị') || '—', sub: 'theo dõi định kỳ', color: '#0B5FA5' },
+        { label: 'SÀNG LỌC THẤT BẠI', value: dv('Số bệnh nhân sàng lọc thất bại') || '—', sub: 'cần giải trình eCRF', color: '#B4440E' },
+        { label: 'AE', value: dv('Số lượng AE') || '—', sub: 'lũy tích', color: '#B4440E' },
+        { label: 'SAE', value: dv('Số lượng SAE') || '—', sub: 'lũy tích', color: '#B3261E' }
+      ];
+      $('detailStats').innerHTML = stats.map(function (st) {
+        return '<div class="kpi" style="border-top-color:' + st.color + '">' +
+                 '<div class="kpi-label" style="min-height:32px">' + st.label + '</div>' +
+                 '<div class="kpi-value" style="color:' + st.color + '">' + escapeHtml(String(st.value)) + '</div>' +
+                 '<div style="font-size:12px;color:var(--slate)">' + escapeHtml(st.sub) + '</div>' +
+               '</div>';
+      }).join('');
+
+      // Tiến trình bệnh nhân
+      var funnelDefs = [
+        { label: 'Đã ký phiếu đồng ý (ICF)', field: 'Đã ký phiếu đồng ý tham gia nghiên cứu', color: '#0E6E5B' },
+        { label: 'Được phân ngẫu nhiên', field: 'Số bệnh nhân được phân ngẫu nhiên', color: '#0B5FA5' },
+        { label: 'Đang điều trị', field: 'Số bệnh nhân đang điều trị', color: '#0B5FA5' },
+        { label: 'Sàng lọc thất bại', field: 'Số bệnh nhân sàng lọc thất bại', color: '#B4440E' },
+        { label: 'Mất theo dõi', field: 'Số bệnh nhân mất theo dõi', color: '#B4440E' },
+        { label: 'Hoàn tất điều trị', field: 'Số bệnh nhân hoàn tất điều trị', color: '#5C6F7E' }
+      ];
+      var base = 0;
+      funnelDefs.forEach(function (f) { var n = dnum(f.field); if (n != null && n > base) base = n; });
+
+      $('detailFunnel').innerHTML =
+        '<h2>Tiến trình bệnh nhân tại BVTN</h2>' +
+        '<p class="card-hint">Nguồn: sheet DATABASE, dòng ' + detailData.row + '</p>' +
+        funnelDefs.map(function (f) {
+          var raw = dv(f.field);
+          var n = dnum(f.field);
+          var pct = (n != null && base > 0) ? Math.round(n / base * 100) : 0;
+          return '<div style="margin-bottom:14px">' +
+                   '<div class="progress-label"><span style="font-weight:600">' + f.label + '</span>' +
+                     '<span style="font-weight:700;color:' + f.color + '">' + escapeHtml(raw || '—') + '</span></div>' +
+                   '<div class="bar"><span style="width:' + pct + '%;background:' + f.color + '"></span></div>' +
+                 '</div>';
+        }).join('');
+
+      // Nhân sự & đối tác
+      var team = [
+        { role: 'NGHIÊN CỨU VIÊN CHÍNH (PI)', name: dv('Nghiên cứu viên chính'), meta: dv('Khoa thực hiện') },
+        { role: 'NHÀ TÀI TRỢ', name: dv('Nhà tài trợ'), meta: dv('Thu tuyển cạnh tranh') ? 'Thu tuyển cạnh tranh: ' + dv('Thu tuyển cạnh tranh') : '' },
+        { role: 'CRO', name: dv('CRO (Contract Research Organization)'), meta: '' },
+        { role: 'CRA', name: dv('CRA (Clinical Research Associate)'), meta: [dv("CRA's Phone"), dv("CRA's Email")].filter(Boolean).join(' · ') },
+        { role: 'SMO', name: dv('SMO (Site Management Organization)'), meta: '' },
+        { role: 'CRC', name: dv('CRC (Clinical Research Coordinator)'), meta: [dv("CRC's Phone"), dv("CRC's Email")].filter(Boolean).join(' · ') }
+      ];
+      $('detailTeam').innerHTML =
+        '<h2>Nhân sự &amp; đối tác</h2>' +
+        '<ul style="list-style:none;margin:12px 0 0;padding:0">' +
+        team.map(function (m) {
+          return '<li style="padding:11px 0;border-top:1px solid var(--line)">' +
+                   '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--slate)">' + m.role + '</div>' +
+                   '<div style="font-size:14px;font-weight:600;margin-top:3px">' + escapeHtml(m.name || '—') + '</div>' +
+                   (m.meta ? '<div style="font-size:12px;color:var(--slate)">' + escapeHtml(m.meta) + '</div>' : '') +
+                 '</li>';
+        }).join('') + '</ul>';
+
+      renderDetailTasks();
+      buildUpdateForm();
+    }
+
+    function renderDetailTasks() {
+      var rows = allTasks.filter(function (t) { return t.tenVietTat === detailData.abbr; });
+      var html = '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">' +
+                   '<h2 style="flex-grow:1">Công việc của nghiên cứu <span style="font-weight:500;color:var(--slate)">· ' + rows.length + '</span></h2>' +
+                   '<button type="button" class="btn-secondary" onclick="assignFromDetail()">Giao việc mới</button>' +
+                 '</div>';
+
+      if (!rows.length) {
+        html += '<p class="card-hint" style="margin-top:12px">Chưa có công việc nào được giao cho nghiên cứu này.</p>';
+      } else {
+        html += '<ul style="list-style:none;margin:14px 0 0;padding:0">' + rows.slice(0, 10).map(function (t) {
+          var meta = STATUS_META[t.taskStatus] || STATUS_META['Đang thực hiện'];
+          return '<li style="padding:11px 0;border-top:1px solid var(--line);display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">' +
+                   '<span style="flex-grow:1;min-width:200px">' +
+                     '<span style="display:block;font-size:14px;font-weight:600">' + escapeHtml(t.name) + '</span>' +
+                     '<span style="display:block;font-size:12px;color:var(--slate)">Giao ' + escapeHtml(t.startDate) + ' · ' + escapeHtml(t.provider) +
+                       (t.signer ? ' · Người ký: ' + escapeHtml(t.signer) : '') + '</span>' +
+                   '</span>' +
+                   '<span class="badge" style="color:' + meta.fg + ';background:' + meta.bg + ';border:1px solid ' + meta.border + '">' + escapeHtml(t.taskStatus) + '</span>' +
+                 '</li>';
+        }).join('') + '</ul>';
+        if (rows.length > 10) {
+          html += '<p class="card-hint" style="margin-top:10px">Hiện 10 / ' + rows.length + ' công việc — xem đầy đủ ở tab Theo dõi tiến độ.</p>';
+        }
+      }
+      $('detailTasks').innerHTML = html;
+    }
+
+    // ---------- Form cập nhật định kỳ ----------
+    function detailFieldHtml(name, numeric) {
+      var value = dv(name);
+      var id = 'f_' + name.replace(/[^A-Za-z0-9]/g, '_');
+      var common = 'id="' + id + '" data-field="' + escapeHtml(name) + '" class="input" ';
+
+      if (name === 'Tình trạng nghiên cứu') {
+        var opts = STUDY_STATUS_OPTIONS.slice();
+        if (value && opts.indexOf(value) === -1) opts.unshift(value);
+        return '<div><label class="label" for="' + id + '">' + escapeHtml(name) + '</label>' +
+               '<select ' + common + '>' + opts.map(function (o) {
+                 return '<option' + (o === value ? ' selected' : '') + '>' + escapeHtml(o) + '</option>';
+               }).join('') + '</select></div>';
+      }
+
+      if (name === 'Thu tuyển cạnh tranh') {
+        var vals = ['TRUE', 'FALSE'];
+        if (value && vals.indexOf(value.toUpperCase()) === -1) vals.unshift(value);
+        return '<div><label class="label" for="' + id + '">' + escapeHtml(name) + '</label>' +
+               '<select ' + common + '>' + vals.map(function (o) {
+                 return '<option' + (o.toUpperCase() === value.toUpperCase() ? ' selected' : '') + '>' + escapeHtml(o) + '</option>';
+               }).join('') + '</select></div>';
+      }
+
+      var isNumeric = numeric && (value === '' || /^\d+$/.test(value));
+      var attrs = isNumeric ? 'type="number" min="0" step="1" inputmode="numeric"' : 'type="text"';
+      var hint = (numeric && !isNumeric && value) ? '<p class="hint">Giá trị hiện tại không phải số — sửa thành số nếu muốn tính được tiến độ.</p>' : '';
+      return '<div><label class="label" for="' + id + '">' + escapeHtml(name) + '</label>' +
+             '<input ' + attrs + ' ' + common + 'value="' + escapeHtml(value) + '">' + hint + '</div>';
+    }
+
+    function buildUpdateForm() {
+      var used = {};
+      DETAIL_GROUPS.forEach(function (g) { g.fields.forEach(function (f) { used[f] = true; }); });
+      detailData.readonlyFields.forEach(function (f) { used[f] = true; });
+
+      var others = detailData.headers.filter(function (h) { return !used[h]; });
+      var groups = DETAIL_GROUPS.slice();
+      if (others.length) groups.push({ title: 'Trường khác trong sheet', fields: others });
+
+      var html =
+        '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">' +
+          '<h2 style="flex-grow:1">Cập nhật định kỳ — ghi thẳng vào sheet DATABASE</h2>' +
+          '<span style="font-size:12px;color:var(--slate)">Dòng ' + detailData.row + '</span>' +
+        '</div>' +
+        '<p class="card-hint">Các trường định danh (tên nghiên cứu, mã, PI, khoa, nhà tài trợ) chỉ đọc — sửa trực tiếp trên sheet nếu cần.</p>';
+
+      groups.forEach(function (g) {
+        var fields = g.fields.filter(function (f) { return detailData.headers.indexOf(f) !== -1; });
+        if (!fields.length) return;
+        html += '<h3 style="margin:18px 0 10px;font-family:\'Montserrat\',sans-serif;font-size:13px;font-weight:700">' + escapeHtml(g.title) + '</h3>' +
+                '<div class="grid-2" style="gap:14px">' + fields.map(function (f) { return detailFieldHtml(f, g.numeric); }).join('') + '</div>';
+      });
+
+      html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">' +
+                '<button type="submit" class="btn-primary" id="updateSaveBtn"><span id="updateSaveText">LƯU CẬP NHẬT</span></button>' +
+                '<button type="button" class="btn-secondary" onclick="renderDetail()">Khôi phục giá trị đang có</button>' +
+              '</div>';
+
+      $('updateForm').innerHTML = html;
+    }
+
+    function toggleUpdateForm() {
+      var form = $('updateForm');
+      form.hidden = !form.hidden;
+      $('updateToggleBtn').textContent = form.hidden ? 'CẬP NHẬT ĐỊNH KỲ' : 'ẨN FORM CẬP NHẬT';
+      if (!form.hidden) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    $('updateForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (!detailData) return;
+
+      var values = {};
+      $('updateForm').querySelectorAll('[data-field]').forEach(function (el) {
+        values[el.getAttribute('data-field')] = el.value.trim();
+      });
+
+      var btn = $('updateSaveBtn');
+      btn.disabled = true;
+      $('updateSaveText').textContent = 'ĐANG LƯU…';
+
+      google.script.run.withSuccessHandler(function (result) {
+        btn.disabled = false;
+        $('updateSaveText').textContent = 'LƯU CẬP NHẬT';
+        if (result && result.success) {
+          showAlert('success', result.message);
+          openDetail(detailData.abbr);
+          google.script.run.withSuccessHandler(function (res) {
+            if (res && res.success) { researchData = res.data; $('totalResearch').textContent = res.total; }
+          }).getResearchList();
+        } else {
+          showAlert('error', (result && result.message) || 'Không lưu được cập nhật');
+        }
+      }).withFailureHandler(function (err) {
+        btn.disabled = false;
+        $('updateSaveText').textContent = 'LƯU CẬP NHẬT';
+        showAlert('error', 'Lỗi khi ghi sheet: ' + (err.message || err));
+      }).updateResearch({ row: detailData.row, abbr: detailData.abbr, values: values });
+    });
+
+    // ---------- Hành động ----------
+    function assignFromDetail() {
+      if (!detailData) return;
+      switchTab('assignment');
+      selectResearch(detailData.abbr);
+      $('taskName').focus();
+    }
+
+    function exportStudyReport() {
+      if (!detailData) return;
+      var lines = [['BÁO CÁO NGHIÊN CỨU', detailData.abbr], ['Mã nghiên cứu', detailData.code],
+                   ['Xuất lúc', new Date().toLocaleString('vi-VN')], []];
+
+      lines.push(['THÔNG TIN TRONG SHEET DATABASE', '']);
+      detailData.headers.forEach(function (h) { lines.push([h, dv(h)]); });
+
+      var rows = allTasks.filter(function (t) { return t.tenVietTat === detailData.abbr; });
+      lines.push([]);
+      lines.push(['CÔNG VIỆC (' + rows.length + ')', '']);
+      lines.push(['Tên công việc', 'Ngày giao', 'Người giao', 'Người ký', 'Ưu tiên', 'Số tài liệu', 'Trạng thái', 'Lý do hủy', 'Ghi chú']);
+      rows.forEach(function (t) {
+        lines.push([t.name, t.startDate, t.provider, t.signer, t.status, t.progress, t.taskStatus, t.cancelReason, t.note]);
+      });
+
+      var csv = lines.map(function (line) {
+        return line.map(function (cell) { return '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"'; }).join(',');
+      }).join('\n');
+
+      var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'bao-cao-' + detailData.abbr.replace(/[^A-Za-z0-9-]+/g, '-') + '.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showAlert('success', 'Đã xuất báo cáo ' + detailData.abbr + ' (CSV mở được bằng Excel).');
     }
 
     // ==================== TAB 3: GÓP Ý ====================
