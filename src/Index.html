@@ -443,7 +443,7 @@
           <div class="table-head">
             <h2>Danh sách công việc <span style="font-weight: 500; color: var(--slate)" id="taskCountText">· 0 công việc</span></h2>
             <label class="label" style="margin: 0" for="sortSelect">Sắp xếp</label>
-            <select class="select" id="sortSelect" style="width: auto; padding: 8px 10px; border-radius: 9px" onchange="renderTasks()">
+            <select class="select" id="sortSelect" style="width: auto; padding: 8px 10px; border-radius: 9px" onchange="trackerShown = 3; renderTasks()">
               <option value="newest">Mới nhất trước</option>
               <option value="oldest">Cũ nhất trước</option>
               <option value="priority">Ưu tiên cao trước</option>
@@ -472,6 +472,11 @@
               </thead>
               <tbody id="taskTableBody"></tbody>
             </table>
+          </div>
+
+          <div class="log-more" id="taskMoreWrap" hidden>
+            <button type="button" class="btn-secondary" id="taskMoreBtn" onclick="showMoreTasks()">Xem thêm</button>
+            <button type="button" class="btn-secondary" id="taskCollapseBtn" hidden onclick="collapseTasks()">Thu gọn</button>
           </div>
 
           <div class="empty" id="taskEmpty" hidden>
@@ -676,6 +681,7 @@
     var feedbackFiles = [];
     var trackerStudy = '';
     var trackerStatus = 'all';
+    var trackerShown = 3;   // số dòng công việc đang hiện, bấm xem thêm +10
     var feedbackExpanded = false;
 
     var PRIORITIES = [
@@ -1063,6 +1069,7 @@
 
     function pickTrackerStudy(abbr) {
       trackerStudy = abbr;
+      trackerShown = 3;
       $('trackerSearch').value = '';
       onTrackerSearch();
       renderTasks();
@@ -1071,6 +1078,7 @@
     function clearTrackerStudy() {
       trackerStudy = '';
       trackerStatus = 'all';
+      trackerShown = 3;
       $('trackerSearch').value = '';
       onTrackerSearch();
       renderStatusChips();
@@ -1112,6 +1120,7 @@
 
     function setTrackerStatus(key) {
       trackerStatus = (trackerStatus === key && key !== 'all') ? 'all' : key;
+      trackerShown = 3;
       renderStatusChips();
       renderTasks();
     }
@@ -1174,12 +1183,22 @@
                '</div>';
       }).join('');
 
-      // Bảng
-      $('taskCountText').textContent = '· ' + rows.length + ' công việc';
+      // Bảng — chỉ hiện trackerShown dòng, bấm "Xem thêm" để thêm 10 dòng
+      if (trackerShown > 3 && trackerShown > rows.length) trackerShown = Math.max(3, rows.length);
+      var visible = rows.slice(0, trackerShown);
+      var remaining = rows.length - visible.length;
+
+      $('taskCountText').textContent = remaining > 0
+        ? '· đang hiện ' + visible.length + ' / ' + rows.length + ' công việc'
+        : '· ' + rows.length + ' công việc';
       $('taskEmpty').hidden = rows.length > 0;
       $('taskTableWrap').hidden = rows.length === 0;
+      $('taskMoreWrap').hidden = rows.length === 0 || (remaining === 0 && visible.length <= 3);
+      $('taskMoreBtn').hidden = remaining === 0;
+      $('taskMoreBtn').textContent = 'Xem thêm ' + Math.min(10, remaining) + ' công việc';
+      $('taskCollapseBtn').hidden = visible.length <= 3;
 
-      $('taskTableBody').innerHTML = rows.map(function (t) {
+      $('taskTableBody').innerHTML = visible.map(function (t) {
         var pr = PRIORITIES.filter(function (p) { return p.value === t.status; })[0] || PRIORITIES[1];
         var docsCell = t.files
           ? '<a href="' + escapeHtml(t.files) + '" target="_blank" rel="noopener">' + escapeHtml(String(t.progress || 0)) + ' tệp</a>'
@@ -1204,6 +1223,17 @@
                    ' onchange="changeTaskStatus(' + t.row + ', this.value)" aria-label="Trạng thái công việc">' + options + '</select></td>' +
                '</tr>';
       }).join('');
+    }
+
+    function showMoreTasks() {
+      trackerShown += 10;
+      renderTasks();
+    }
+
+    function collapseTasks() {
+      trackerShown = 3;
+      renderTasks();
+      $('taskTableWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function changeTaskStatus(row, newStatus) {
