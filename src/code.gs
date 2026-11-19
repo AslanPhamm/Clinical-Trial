@@ -660,6 +660,7 @@ function getGcpList() {
         status: status.label,
         statusKey: status.key,
         days: status.days,
+        link: cellToString_(row[cols.link], tz),
         hasScan: cellToString_(row[cols.link], tz) !== ''
       });
     }

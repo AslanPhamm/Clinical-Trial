@@ -507,8 +507,10 @@
             <div>
               <label class="label" for="feedbackScreen">Màn hình liên quan</label>
               <select class="select" id="feedbackScreen">
-                <option>Giao việc</option>
+                <option>Tạo công việc</option>
                 <option>Theo dõi tiến độ</option>
+                <option>Chi tiết nghiên cứu</option>
+                <option>Chứng chỉ GCP</option>
                 <option>Góp ý</option>
                 <option>Toàn bộ ứng dụng</option>
               </select>
@@ -665,7 +667,6 @@
       <div class="col-main">
         <div class="card">
           <h2>Tra cứu chứng chỉ GCP-Safety</h2>
-          <p class="card-hint">Tra cứu hiệu lực chứng chỉ GCP của nhân viên y tế. Chứng chỉ có hiệu lực 2 năm kể từ ngày cấp.</p>
 
           <div class="field">
             <label class="label" for="gcpSearch">Họ và tên nhân viên</label>
@@ -689,7 +690,6 @@
       <aside class="col-side">
         <form class="card" id="gcpForm" novalidate>
           <h2>Bổ sung chứng chỉ</h2>
-          <p class="card-hint">Ghi chứng chỉ mới vào sổ. Bản scan được lưu vào thư mục chứng chỉ trên Drive.</p>
 
           <div class="field">
             <label class="label" for="gcpName">Họ và tên <span style="color: var(--red)">*</span></label>
@@ -2022,9 +2022,12 @@
         '<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-top:16px">' +
           fact('NGÀY CẤP CHỨNG CHỈ', escapeHtml(item.cap || '—'), '') +
           fact('NGÀY HẾT HẠN', escapeHtml(item.han || '—'), extra) +
-          fact('BẢN SCAN', item.hasScan ? 'Đã có' : 'Chưa có', item.hasScan ? 'lưu trong sổ GCP' : 'cần bổ sung') +
-        '</div>' +
-        '<p class="hint">Bản scan chứng chỉ chỉ xem được trong Google Sheet/Drive của đơn vị, không mở trực tiếp trên trang này.</p>';
+          fact('BẢN SCAN',
+            item.link
+              ? '<a href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer">Bấm vào để xem</a>'
+              : 'Chưa có',
+            item.link ? '' : 'cần bổ sung') +
+        '</div>';
 
       $('gcpRecord').hidden = false;
       $('gcpEmpty').hidden = true;
