@@ -272,6 +272,7 @@
       <button type="button" class="tab active" data-tab="assignment" onclick="switchTab('assignment')">TẠO CÔNG VIỆC</button>
       <button type="button" class="tab" data-tab="tracker" onclick="switchTab('tracker')">THEO DÕI TIẾN ĐỘ</button>
       <button type="button" class="tab" data-tab="detail" onclick="switchTab('detail')">CHI TIẾT NGHIÊN CỨU</button>
+      <button type="button" class="tab" data-tab="gcp" onclick="switchTab('gcp')">CHỨNG CHỈ GCP</button>
       <button type="button" class="tab" data-tab="feedback" onclick="switchTab('feedback')">GÓP Ý</button>
     </div>
   </nav>
@@ -637,6 +638,105 @@
         <form class="card" id="updateForm" hidden></form>
       </div>
     </section>
+
+    <!-- ==================== TAB 5: CHỨNG CHỈ GCP ==================== -->
+    <section class="page" id="gcpTab" hidden>
+      <div class="col-full" id="gcpAlertWrap"></div>
+
+      <div class="col-full" style="display: flex; flex-wrap: wrap; gap: 12px">
+        <div class="kpi" style="flex: 1 1 180px; min-width: 0; border-top-color: #0F2231">
+          <div class="kpi-value" style="color: #0F2231" id="gcpTotal">--</div>
+          <div class="kpi-label">Tổng chứng chỉ</div>
+        </div>
+        <div class="kpi" style="flex: 1 1 180px; min-width: 0; border-top-color: #0E6E5B">
+          <div class="kpi-value" style="color: #0E6E5B" id="gcpValid">--</div>
+          <div class="kpi-label">Còn hạn</div>
+        </div>
+        <div class="kpi" style="flex: 1 1 180px; min-width: 0; border-top-color: #B4440E">
+          <div class="kpi-value" style="color: #B4440E" id="gcpSoon">--</div>
+          <div class="kpi-label">Sắp hết hạn (dưới 90 ngày)</div>
+        </div>
+        <div class="kpi" style="flex: 1 1 180px; min-width: 0; border-top-color: #B3261E">
+          <div class="kpi-value" style="color: #B3261E" id="gcpExpired">--</div>
+          <div class="kpi-label">Đã hết hạn</div>
+        </div>
+      </div>
+
+      <div class="col-main">
+        <div class="card">
+          <h2>Tra cứu chứng chỉ GCP-Safety</h2>
+          <p class="card-hint">Tra cứu hiệu lực chứng chỉ GCP của nhân viên y tế. Chứng chỉ có hiệu lực 2 năm kể từ ngày cấp.</p>
+
+          <div class="field">
+            <label class="label" for="gcpSearch">Họ và tên nhân viên</label>
+            <div class="combo">
+              <input class="input" id="gcpSearch" type="text" autocomplete="off"
+                     placeholder="Nhập tên, không cần dấu"
+                     oninput="onGcpSearch()" onfocus="onGcpSearch()" onblur="hideGcpListLater()">
+              <div class="combo-list" id="gcpList" hidden></div>
+            </div>
+            <p class="hint">Gõ từ 2 ký tự để xem gợi ý, rồi chọn một người để xem ngày cấp và ngày hết hạn.</p>
+          </div>
+        </div>
+
+        <div class="empty card" id="gcpEmpty">
+          <p style="font-size: 15px; font-weight: 600; color: var(--ink)">Chưa chọn nhân viên</p>
+        </div>
+
+        <div class="card" id="gcpRecord" hidden></div>
+      </div>
+
+      <aside class="col-side">
+        <form class="card" id="gcpForm" novalidate>
+          <h2>Bổ sung chứng chỉ</h2>
+          <p class="card-hint">Ghi chứng chỉ mới vào sổ. Bản scan được lưu vào thư mục chứng chỉ trên Drive.</p>
+
+          <div class="field">
+            <label class="label" for="gcpName">Họ và tên <span style="color: var(--red)">*</span></label>
+            <input class="input" id="gcpName" type="text" placeholder="Họ tên người được cấp chứng chỉ" oninput="checkGcpDuplicate()">
+            <div id="gcpDupNote"></div>
+          </div>
+
+          <div class="field">
+            <label class="label" for="gcpKhoa">Khoa làm việc <span style="color: var(--red)">*</span></label>
+            <select class="select" id="gcpKhoa">
+              <option value="">— Chọn khoa —</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="label" for="gcpCapDate">Ngày được cấp <span style="color: var(--red)">*</span></label>
+            <input class="input" id="gcpCapDate" type="date" onchange="syncGcpExpiry()">
+            <p class="hint" id="gcpExpHint">Ngày hết hạn tự tính: đúng 2 năm kể từ ngày cấp.</p>
+          </div>
+
+          <div class="field">
+            <span class="label">Bản scan chứng chỉ <span style="color: var(--red)">*</span></span>
+            <div class="dropzone" id="gcpDropzone">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0B5FA5" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                <path d="M12 16V4m0 0L8 8m4-4 4 4"></path><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
+              </svg>
+              <p style="margin: 8px 0 12px; font-size: 13px; color: var(--ink-soft)">Ảnh JPG/PNG hoặc PDF</p>
+              <div class="file-buttons">
+                <label class="btn-outline" for="gcpFileInput">Chọn tệp</label>
+                <input class="file-input" id="gcpFileInput" type="file" accept=".pdf,.png,.jpg,.jpeg" onchange="handleGcpFileSelect(event)">
+                <label class="btn-ghost" for="gcpCameraInput">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h3l2-2h8l2 2h3v11H3z"></path><circle cx="12" cy="13" r="3.2"></circle></svg>
+                  Chụp ảnh
+                </label>
+                <input class="file-input" id="gcpCameraInput" type="file" accept="image/*" capture="environment" onchange="handleGcpFileSelect(event)">
+              </div>
+            </div>
+            <ul class="file-list" id="gcpFileList"></ul>
+          </div>
+
+          <div class="field" style="display: flex; gap: 10px; flex-wrap: wrap">
+            <button type="submit" class="btn-primary" id="gcpSubmitBtn"><span id="gcpSubmitText">GHI VÀO SỔ</span></button>
+            <button type="button" class="btn-secondary" onclick="resetGcpForm()">Xóa nội dung</button>
+          </div>
+        </form>
+      </aside>
+    </section>
   </main>
 
   <footer class="footer">
@@ -725,13 +825,14 @@
     }
 
     function switchTab(name) {
-      var tabs = { assignment: 'assignmentTab', tracker: 'trackerTab', detail: 'detailTab', feedback: 'feedbackTab' };
+      var tabs = { assignment: 'assignmentTab', tracker: 'trackerTab', detail: 'detailTab', gcp: 'gcpTab', feedback: 'feedbackTab' };
       Object.keys(tabs).forEach(function (key) { $(tabs[key]).hidden = key !== name; });
       document.querySelectorAll('.tab').forEach(function (btn) {
         btn.classList.toggle('active', btn.getAttribute('data-tab') === name);
       });
       if (name === 'tracker') loadTasks();
       if (name === 'feedback') loadFeedback();
+      if (name === 'gcp') loadGcp();
       if (name === 'detail' && !detailData && trackerStudy) loadDetailData(trackerStudy);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -1784,6 +1885,251 @@
       feedbackExpanded = !feedbackExpanded;
       renderFeedbackLog();
     }
+
+    // ==================== TAB 5: CHỨNG CHỈ GCP ====================
+    var gcpItems = [];
+    var gcpShown = [];
+    var gcpKhoaFilled = false;
+    var gcpFiles = [];
+    var gcpHideTimer = null;
+
+    var GCP_STATUS_META = {
+      valid:   { fg: '#0B5345', bg: '#E6F3F0', border: '#0E6E5B' },
+      soon:    { fg: '#8F330A', bg: '#FDF0E7', border: '#B4440E' },
+      expired: { fg: '#8F1C15', bg: '#FBECEA', border: '#B3261E' },
+      unknown: { fg: '#35495A', bg: '#EEF2F5', border: '#8EA1B0' }
+    };
+
+    function gcpNorm(value) {
+      return String(value == null ? '' : value)
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function loadGcp() {
+      google.script.run.withSuccessHandler(function (result) {
+        $('gcpAlertWrap').innerHTML = '';
+        if (!result || !result.success) {
+          $('gcpAlertWrap').innerHTML = '<div class="alert alert-error" style="margin:0">' +
+            '<strong>Không đọc được sổ chứng chỉ.</strong> ' +
+            escapeHtml((result && result.message) || 'Lỗi không xác định') + '</div>';
+          return;
+        }
+        gcpItems = result.data || [];
+        var c = result.counts || {};
+        $('gcpTotal').textContent = c.total || 0;
+        $('gcpValid').textContent = c.valid || 0;
+        $('gcpSoon').textContent = c.soon || 0;
+        $('gcpExpired').textContent = c.expired || 0;
+
+        if (!gcpKhoaFilled) {
+          var khoa = result.khoaList || [];
+          if (!khoa.length) {
+            var seen = {};
+            gcpItems.forEach(function (it) { if (it.khoa && !seen[it.khoa]) { seen[it.khoa] = 1; khoa.push(it.khoa); } });
+            khoa.sort(function (a, b) { return a.localeCompare(b, 'vi'); });
+          }
+          $('gcpKhoa').innerHTML = '<option value="">— Chọn khoa —</option>' + khoa.map(function (k) {
+            return '<option>' + escapeHtml(k) + '</option>';
+          }).join('');
+          gcpKhoaFilled = khoa.length > 0;
+        }
+      }).withFailureHandler(function (err) {
+        $('gcpAlertWrap').innerHTML = '<div class="alert alert-error" style="margin:0">' +
+          '<strong>Lỗi tải sổ chứng chỉ.</strong> ' + escapeHtml(err.message || String(err)) + '</div>';
+      }).getGcpList();
+    }
+
+    function onGcpSearch() {
+      var q = gcpNorm($('gcpSearch').value);
+      var list = $('gcpList');
+      if (q.length < 2) { list.hidden = true; list.innerHTML = ''; return; }
+
+      var starts = [], has = [];
+      gcpItems.forEach(function (it) {
+        var key = gcpNorm(it.name);
+        var at = key.indexOf(q);
+        if (at === 0) starts.push(it);
+        else if (at > 0) has.push(it);
+        else if (q.split(' ').every(function (w) { return key.indexOf(w) >= 0; })) has.push(it);
+      });
+      gcpShown = starts.concat(has).slice(0, 10);
+
+      if (!gcpShown.length) {
+        list.innerHTML = '<div class="combo-head">KHÔNG TÌM THẤY NHÂN VIÊN PHÙ HỢP</div>';
+        list.hidden = false;
+        return;
+      }
+
+      list.innerHTML = gcpShown.map(function (it, i) {
+        var meta = GCP_STATUS_META[it.statusKey] || GCP_STATUS_META.unknown;
+        return '<button type="button" class="combo-item" onmousedown="pickGcp(' + i + ')">' +
+                 '<span class="dot" style="background:' + meta.border + '"></span>' +
+                 '<span class="combo-item-body">' +
+                   '<span class="combo-item-title">' + escapeHtml(it.name) + '</span>' +
+                   '<span class="combo-item-meta">' + escapeHtml(it.khoa || 'Chưa ghi khoa') +
+                     (it.cap ? ' · cấp ' + escapeHtml(it.cap) : '') + '</span>' +
+                 '</span>' +
+                 '<span class="combo-item-right" style="color:' + meta.fg + '">' + escapeHtml(it.status) + '</span>' +
+               '</button>';
+      }).join('');
+      list.hidden = false;
+    }
+
+    function hideGcpListLater() {
+      clearTimeout(gcpHideTimer);
+      gcpHideTimer = setTimeout(function () { $('gcpList').hidden = true; }, 150);
+    }
+
+    function pickGcp(index) {
+      var item = gcpShown[index];
+      if (!item) return;
+      $('gcpSearch').value = item.name;
+      $('gcpList').hidden = true;
+      renderGcpRecord(item);
+    }
+
+    function renderGcpRecord(item) {
+      var meta = GCP_STATUS_META[item.statusKey] || GCP_STATUS_META.unknown;
+      var extra = '';
+      if (item.statusKey === 'soon') extra = 'Còn ' + item.days + ' ngày';
+      else if (item.statusKey === 'expired') extra = 'Hết hạn ' + Math.abs(item.days) + ' ngày trước';
+      else if (item.statusKey === 'valid') extra = 'Còn ' + item.days + ' ngày';
+
+      function fact(label, value, sub) {
+        return '<div style="background:var(--surface); padding:13px 16px">' +
+                 '<div style="font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--slate)">' + label + '</div>' +
+                 '<div style="font-size:16px; font-weight:600; margin-top:3px">' + value + '</div>' +
+                 (sub ? '<div style="font-size:12px; color:var(--slate); margin-top:2px">' + sub + '</div>' : '') +
+               '</div>';
+      }
+
+      $('gcpRecord').innerHTML =
+        '<div style="display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap">' +
+          '<div style="flex:999 1 240px; min-width:0">' +
+            '<h2 style="font-size:18px">' + escapeHtml(item.name) + '</h2>' +
+            '<p style="margin:4px 0 0; font-size:13px; color:var(--slate)">' +
+              escapeHtml(item.khoa || 'Chưa ghi khoa') + (item.stt ? ' · STT ' + escapeHtml(item.stt) : '') +
+            '</p>' +
+          '</div>' +
+          '<span class="badge" style="color:' + meta.fg + ';background:' + meta.bg + ';border:1px solid ' + meta.border + '">' +
+            escapeHtml(item.status) + '</span>' +
+        '</div>' +
+        '<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-top:16px">' +
+          fact('NGÀY CẤP CHỨNG CHỈ', escapeHtml(item.cap || '—'), '') +
+          fact('NGÀY HẾT HẠN', escapeHtml(item.han || '—'), extra) +
+          fact('BẢN SCAN', item.hasScan ? 'Đã có' : 'Chưa có', item.hasScan ? 'lưu trong sổ GCP' : 'cần bổ sung') +
+        '</div>' +
+        '<p class="hint">Bản scan chứng chỉ chỉ xem được trong Google Sheet/Drive của đơn vị, không mở trực tiếp trên trang này.</p>';
+
+      $('gcpRecord').hidden = false;
+      $('gcpEmpty').hidden = true;
+    }
+
+    function checkGcpDuplicate() {
+      var key = gcpNorm($('gcpName').value);
+      var note = $('gcpDupNote');
+      if (key.length < 3) { note.innerHTML = ''; return; }
+      var hits = gcpItems.filter(function (it) { return gcpNorm(it.name) === key; });
+      if (!hits.length) { note.innerHTML = ''; return; }
+      note.innerHTML = '<div class="alert" style="margin:8px 0 0;border:1px solid #B4440E;background:#FDF0E7;color:#8F330A">' +
+        '<span><strong>Đã có ' + hits.length + ' chứng chỉ cùng tên.</strong> ' +
+        hits.map(function (it) { return 'cấp ' + escapeHtml(it.cap) + ' · ' + escapeHtml(it.status.toLowerCase()); }).join('; ') +
+        '. Nếu đây là chứng chỉ cấp lại thì cứ ghi tiếp, dòng cũ vẫn giữ.</span></div>';
+    }
+
+    function syncGcpExpiry() {
+      var value = $('gcpCapDate').value;
+      var hint = $('gcpExpHint');
+      if (!value) { hint.textContent = 'Ngày hết hạn tự tính: đúng 2 năm kể từ ngày cấp.'; return; }
+      var parts = value.split('-');
+      var exp = new Date(Number(parts[0]) + 2, Number(parts[1]) - 1, Number(parts[2]));
+      var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      var text = pad(exp.getDate()) + '/' + pad(exp.getMonth() + 1) + '/' + exp.getFullYear();
+      var expired = exp.getTime() < new Date().setHours(0, 0, 0, 0);
+      hint.innerHTML = 'Ngày hết hạn: <strong>' + text + '</strong>' + (expired ? ' — đã hết hạn ngay khi ghi vào sổ' : '');
+    }
+
+    function handleGcpFileSelect(event) {
+      var file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) { showAlert('error', 'Tệp "' + file.name + '" vượt quá 10MB'); return; }
+      gcpFiles = [file];
+      renderGcpFileList();
+    }
+
+    function removeGcpFile(index) { gcpFiles.splice(index, 1); renderGcpFileList(); }
+
+    function renderGcpFileList() {
+      $('gcpFileList').innerHTML = gcpFiles.map(function (f, i) {
+        var ext = fileExt(f.name);
+        return '<li class="file-item">' +
+                 '<span class="file-ext" style="background:' + extColor(ext) + '">' + ext + '</span>' +
+                 '<span class="file-name">' + escapeHtml(f.name) + '</span>' +
+                 '<span class="file-size">' + fileSize(f.size) + '</span>' +
+                 '<button type="button" class="icon-btn" aria-label="Xóa tệp" onclick="removeGcpFile(' + i + ')">' +
+                   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>' +
+                 '</button>' +
+               '</li>';
+      }).join('');
+    }
+
+    function resetGcpForm() {
+      $('gcpName').value = '';
+      $('gcpKhoa').value = '';
+      $('gcpCapDate').value = '';
+      gcpFiles = [];
+      renderGcpFileList();
+      $('gcpDupNote').innerHTML = '';
+      syncGcpExpiry();
+    }
+
+    $('gcpForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      var name = $('gcpName').value.trim();
+      var khoa = $('gcpKhoa').value;
+      var capDate = $('gcpCapDate').value;
+
+      if (!name) { showAlert('error', 'Vui lòng nhập họ và tên người được cấp chứng chỉ.'); $('gcpName').focus(); return; }
+      if (!khoa) { showAlert('error', 'Vui lòng chọn khoa làm việc.'); $('gcpKhoa').focus(); return; }
+      if (!capDate) { showAlert('error', 'Vui lòng chọn ngày được cấp chứng chỉ.'); $('gcpCapDate').focus(); return; }
+      if (!gcpFiles.length) { showAlert('error', 'Vui lòng tải lên bản scan chứng chỉ.'); return; }
+
+      var btn = $('gcpSubmitBtn');
+      btn.disabled = true;
+      $('gcpSubmitText').textContent = 'ĐANG GHI…';
+
+      readFiles(gcpFiles).then(function (files) {
+        google.script.run.withSuccessHandler(function (result) {
+          btn.disabled = false;
+          $('gcpSubmitText').textContent = 'GHI VÀO SỔ';
+          if (result && result.success) {
+            var info = result.data || {};
+            showAlert('success', (result.message || 'Đã ghi vào sổ') +
+              (info.han ? ' — hết hạn ' + info.han : ''));
+            resetGcpForm();
+            loadGcp();
+          } else {
+            showAlert('error', (result && result.message) || 'Không ghi được chứng chỉ');
+          }
+        }).withFailureHandler(function (err) {
+          btn.disabled = false;
+          $('gcpSubmitText').textContent = 'GHI VÀO SỔ';
+          showAlert('error', 'Lỗi: ' + (err.message || err));
+        }).createGcpCertificate({
+          name: name,
+          khoa: khoa,
+          capDate: capDate,
+          files: files
+        });
+      });
+    });
   </script>
 </body>
 </html>

@@ -8,8 +8,11 @@ const CONFIG = {
   DATABASE_SHEET: 'DATABASE',
   TASK_SHEET: 'TASK',
   FEEDBACK_SHEET: 'FEEDBACK',
+  GCP_SHEET: 'GCP',
+  INDEX_SHEET: 'Index',
   DRIVE_FOLDER_ID: '1wTVk8hrCYfYhB4l6o31_ArpvRbOdy4OF',
-  FEEDBACK_FOLDER_NAME: 'GOP_Y'
+  FEEDBACK_FOLDER_NAME: 'GOP_Y',
+  GCP_FOLDER_NAME: 'CHUNG_CHI_GCP'
 };
 
 // Trạng thái công việc dùng chung cho giao diện và sheet
@@ -507,6 +510,273 @@ function getFeedbackList() {
 }
 
 // ==================== TIỆN ÍCH ====================
+// ==================== CHỨNG CHỈ GCP ====================
+// Sheet GCP: STT | Họ và tên | Khoa | Ngày cấp chứng chỉ | Ngày hết hạn dự kiến
+//            | Link chứng chỉ | Tình trạng
+// Vị trí cột được dò theo tiêu đề ở dòng 1, nên thêm/bớt cột trong sheet
+// không làm hỏng giao diện.
+const GCP_COL_ALIASES = {
+  stt: ['stt'],
+  name: ['ho va ten', 'ho ten', 'ten'],
+  khoa: ['khoa', 'khoa lam viec'],
+  cap: ['ngay cap chung chi', 'ngay cap'],
+  han: ['ngay het han du kien', 'ngay het han'],
+  link: ['link chung chi', 'link'],
+  status: ['tinh trang']
+};
+
+const GCP_VALID_MONTHS = 24;   // chứng chỉ có hiệu lực 2 năm kể từ ngày cấp
+const GCP_SOON_DAYS = 90;      // dưới 90 ngày thì coi là sắp hết hạn
+
+function gcpNormKey_(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function gcpColumns_(headers) {
+  const keys = Object.keys(GCP_COL_ALIASES);
+  const cols = {};
+  for (let i = 0; i < headers.length; i++) {
+    const key = gcpNormKey_(headers[i]);
+    if (!key) continue;
+    for (let k = 0; k < keys.length; k++) {
+      const field = keys[k];
+      if (cols[field] === undefined && GCP_COL_ALIASES[field].indexOf(key) >= 0) cols[field] = i;
+    }
+  }
+  const missing = keys.filter(function (k) { return cols[k] === undefined; });
+  if (missing.length) return { ok: false, missing: missing };
+
+  let width = headers.length;
+  keys.forEach(function (k) { if (cols[k] + 1 > width) width = cols[k] + 1; });
+  return { ok: true, cols: cols, width: width };
+}
+
+function gcpToDate_(value) {
+  if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  const text = String(value == null ? '' : value).trim();
+  const m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(text);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  const dt = new Date(year, month - 1, day);
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
+  return dt;
+}
+
+function gcpAddMonths_(date, months) {
+  if (!date) return null;
+  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate());
+}
+
+function gcpToday_() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function gcpStatus_(han) {
+  if (!han) return { key: 'unknown', label: 'Chưa rõ hạn', days: null };
+  const days = Math.round((han.getTime() - gcpToday_().getTime()) / 86400000);
+  if (days < 0) return { key: 'expired', label: 'Đã hết hạn', days: days };
+  if (days <= GCP_SOON_DAYS) return { key: 'soon', label: 'Sắp hết hạn', days: days };
+  return { key: 'valid', label: 'Còn hạn', days: days };
+}
+
+function getKhoaList_(ss) {
+  try {
+    const sheet = ss.getSheetByName(CONFIG.INDEX_SHEET);
+    if (!sheet || sheet.getLastRow() < 2) return [];
+    const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    const seen = {};
+    const list = [];
+    for (let i = 0; i < values.length; i++) {
+      const name = normalizeHeader_(values[i][0]);
+      if (name && !seen[name]) { seen[name] = true; list.push(name); }
+    }
+    return list;
+  } catch (error) {
+    return [];
+  }
+}
+
+/**
+ * Danh sách chứng chỉ GCP để tra cứu.
+ * Không trả link bản scan ra giao diện vì web app mở công khai —
+ * link chỉ nằm trong sheet (cột "Link chứng chỉ").
+ */
+function getGcpList() {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const tz = ss.getSpreadsheetTimeZone();
+    const sheet = ss.getSheetByName(CONFIG.GCP_SHEET);
+    if (!sheet) {
+      return { success: false, message: 'Không tìm thấy sheet "' + CONFIG.GCP_SHEET + '"' };
+    }
+
+    const khoaList = getKhoaList_(ss);
+    const lastRow = sheet.getLastRow();
+    const counts = { total: 0, valid: 0, soon: 0, expired: 0 };
+    if (lastRow < 2) return { success: true, data: [], counts: counts, khoaList: khoaList };
+
+    const values = sheet.getRange(1, 1, lastRow, Math.max(sheet.getLastColumn(), 1)).getValues();
+    const map = gcpColumns_(values[0]);
+    if (!map.ok) {
+      return {
+        success: false,
+        message: 'Sheet GCP thiếu cột: ' + map.missing.join(', ') + '. Kiểm tra dòng tiêu đề của sheet.'
+      };
+    }
+
+    const cols = map.cols;
+    const items = [];
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const name = normalizeHeader_(row[cols.name]);
+      if (!name) continue;
+
+      const cap = gcpToDate_(row[cols.cap]);
+      let han = gcpToDate_(row[cols.han]);
+      if (!han && cap) han = gcpAddMonths_(cap, GCP_VALID_MONTHS);
+      const status = gcpStatus_(han);
+
+      counts.total++;
+      if (status.key === 'expired') counts.expired++;
+      else if (status.key === 'soon') counts.soon++;
+      else if (status.key === 'valid') counts.valid++;
+
+      items.push({
+        row: i + 1,
+        stt: cellToString_(row[cols.stt], tz),
+        name: name,
+        khoa: normalizeHeader_(row[cols.khoa]),
+        cap: cap ? Utilities.formatDate(cap, tz, 'dd/MM/yyyy') : cellToString_(row[cols.cap], tz),
+        han: han ? Utilities.formatDate(han, tz, 'dd/MM/yyyy') : '',
+        status: status.label,
+        statusKey: status.key,
+        days: status.days,
+        hasScan: cellToString_(row[cols.link], tz) !== ''
+      });
+    }
+
+    return { success: true, data: items, counts: counts, khoaList: khoaList };
+  } catch (error) {
+    return { success: false, message: 'Lỗi: ' + error.message };
+  }
+}
+
+function uploadCertificateFile_(file, baseName) {
+  const parentFolder = DriveApp.getFolderById(CONFIG.DRIVE_FOLDER_ID);
+  let targetFolder = null;
+  const folders = parentFolder.getFolders();
+  while (folders.hasNext()) {
+    const f = folders.next();
+    if (f.getName() === CONFIG.GCP_FOLDER_NAME) { targetFolder = f; break; }
+  }
+  if (!targetFolder) targetFolder = parentFolder.createFolder(CONFIG.GCP_FOLDER_NAME);
+
+  const parts = String(file.name || '').split('.');
+  const ext = parts.length > 1 ? '.' + parts[parts.length - 1] : '';
+  const blob = Utilities.newBlob(Utilities.base64Decode(file.data), file.type, baseName + ext);
+  return targetFolder.createFile(blob).getUrl();
+}
+
+/**
+ * Ghi một chứng chỉ GCP mới vào sheet GCP và tải bản scan lên Drive.
+ * payload: { name, khoa, capDate (yyyy-MM-dd), files: [{ name, type, data }] }
+ */
+function createGcpCertificate(payload) {
+  try {
+    const data = payload || {};
+    const name = sanitizeFolderName_(data.name);
+    const khoa = normalizeHeader_(data.khoa);
+    const capText = String(data.capDate || '').trim();
+    const files = data.files || [];
+
+    if (!name) return { success: false, message: 'Vui lòng nhập họ và tên người được cấp chứng chỉ' };
+    if (!khoa) return { success: false, message: 'Vui lòng chọn khoa làm việc' };
+
+    const parts = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(capText);
+    if (!parts) return { success: false, message: 'Vui lòng chọn ngày được cấp chứng chỉ' };
+    const cap = new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+    if (cap.getTime() > gcpToday_().getTime()) {
+      return { success: false, message: 'Ngày cấp chứng chỉ không thể ở tương lai' };
+    }
+    if (!files.length) return { success: false, message: 'Vui lòng tải lên bản scan chứng chỉ' };
+
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const tz = ss.getSpreadsheetTimeZone();
+    const sheet = ss.getSheetByName(CONFIG.GCP_SHEET);
+    if (!sheet) return { success: false, message: 'Không tìm thấy sheet "' + CONFIG.GCP_SHEET + '"' };
+
+    const lastRow = sheet.getLastRow();
+    const headerWidth = Math.max(sheet.getLastColumn(), 1);
+    const map = gcpColumns_(sheet.getRange(1, 1, 1, headerWidth).getValues()[0]);
+    if (!map.ok) {
+      return { success: false, message: 'Sheet GCP thiếu cột: ' + map.missing.join(', ') };
+    }
+    const cols = map.cols;
+
+    // Số thứ tự kế tiếp
+    let nextStt = 1;
+    if (lastRow > 1) {
+      const sttValues = sheet.getRange(2, cols.stt + 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < sttValues.length; i++) {
+        const n = parseInt(sttValues[i][0], 10);
+        if (!isNaN(n) && n >= nextStt) nextStt = n + 1;
+      }
+    }
+
+    const han = gcpAddMonths_(cap, GCP_VALID_MONTHS);
+    const status = gcpStatus_(han);
+
+    let link = '';
+    try {
+      link = uploadCertificateFile_(files[0], sanitizeFolderName_(name + '_' + khoa));
+    } catch (driveError) {
+      return { success: false, message: 'Không tải được bản scan lên Drive: ' + driveError.message };
+    }
+
+    const rowValues = [];
+    for (let i = 0; i < map.width; i++) rowValues.push('');
+    rowValues[cols.stt] = nextStt;
+    rowValues[cols.name] = name;
+    rowValues[cols.khoa] = khoa;
+    rowValues[cols.cap] = cap;
+    rowValues[cols.han] = han;
+    rowValues[cols.link] = link;
+    rowValues[cols.status] = status.label;
+
+    try {
+      sheet.appendRow(rowValues);
+    } catch (sheetError) {
+      return {
+        success: false,
+        message: 'Bản scan đã lên Drive nhưng chưa ghi được dòng vào sheet: ' + sheetError.message
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Đã ghi chứng chỉ của ' + name + ' vào sổ',
+      data: {
+        name: name,
+        khoa: khoa,
+        cap: Utilities.formatDate(cap, tz, 'dd/MM/yyyy'),
+        han: Utilities.formatDate(han, tz, 'dd/MM/yyyy'),
+        status: status.label
+      }
+    };
+  } catch (error) {
+    return { success: false, message: 'Lỗi: ' + error.message };
+  }
+}
+
 function testConnection() {
   try {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
