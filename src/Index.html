@@ -654,10 +654,6 @@
           <div class="kpi-value" style="color: #0E6E5B" id="gcpValid">--</div>
           <div class="kpi-label">Còn hạn</div>
         </div>
-        <div class="kpi" style="flex: 1 1 180px; min-width: 0; border-top-color: #B4440E">
-          <div class="kpi-value" style="color: #B4440E" id="gcpSoon">--</div>
-          <div class="kpi-label">Sắp hết hạn (dưới 90 ngày)</div>
-        </div>
         <div class="kpi" style="flex: 1 1 180px; min-width: 0; border-top-color: #B3261E">
           <div class="kpi-value" style="color: #B3261E" id="gcpExpired">--</div>
           <div class="kpi-label">Đã hết hạn</div>
@@ -1922,8 +1918,7 @@
         gcpItems = result.data || [];
         var c = result.counts || {};
         $('gcpTotal').textContent = c.total || 0;
-        $('gcpValid').textContent = c.valid || 0;
-        $('gcpSoon').textContent = c.soon || 0;
+        $('gcpValid').textContent = (c.valid || 0) + (c.soon || 0);
         $('gcpExpired').textContent = c.expired || 0;
 
         if (!gcpKhoaFilled) {
