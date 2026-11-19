@@ -703,7 +703,7 @@
           <div class="field">
             <label class="label" for="gcpCapDate">Ngày được cấp <span style="color: var(--red)">*</span></label>
             <input class="input" id="gcpCapDate" type="date" onchange="syncGcpExpiry()">
-            <p class="hint" id="gcpExpHint">Ngày hết hạn tự tính: đúng 2 năm kể từ ngày cấp.</p>
+            <p class="hint" id="gcpExpHint">Ngày hết hạn tự tính: đúng 3 năm kể từ ngày cấp.</p>
           </div>
 
           <div class="field">
@@ -2043,9 +2043,9 @@
     function syncGcpExpiry() {
       var value = $('gcpCapDate').value;
       var hint = $('gcpExpHint');
-      if (!value) { hint.textContent = 'Ngày hết hạn tự tính: đúng 2 năm kể từ ngày cấp.'; return; }
+      if (!value) { hint.textContent = 'Ngày hết hạn tự tính: đúng 3 năm kể từ ngày cấp.'; return; }
       var parts = value.split('-');
-      var exp = new Date(Number(parts[0]) + 2, Number(parts[1]) - 1, Number(parts[2]));
+      var exp = new Date(Number(parts[0]) + 3, Number(parts[1]) - 1, Number(parts[2]));
       var pad = function (n) { return (n < 10 ? '0' : '') + n; };
       var text = pad(exp.getDate()) + '/' + pad(exp.getMonth() + 1) + '/' + exp.getFullYear();
       var expired = exp.getTime() < new Date().setHours(0, 0, 0, 0);

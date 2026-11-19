@@ -525,7 +525,7 @@ const GCP_COL_ALIASES = {
   status: ['tinh trang']
 };
 
-const GCP_VALID_MONTHS = 24;   // chứng chỉ có hiệu lực 2 năm kể từ ngày cấp
+const GCP_VALID_MONTHS = 36;   // chứng chỉ có hiệu lực 3 năm kể từ ngày cấp
 const GCP_SOON_DAYS = 90;      // dưới 90 ngày thì coi là sắp hết hạn
 
 function gcpNormKey_(value) {
