@@ -77,6 +77,7 @@ function getResearchList() {
       const row = data[i];
       if (row[nameIndex] || row[abbrIndex] || row[codeIndex]) {
         researchList.push({
+          row: i + 1,
           tenNghienCuu: String(row[nameIndex] || '').trim(),
           tenVietTat: String(row[abbrIndex] || '').trim(),
           maNghienCuu: String(row[codeIndex] || '').trim(),
@@ -317,7 +318,13 @@ function cellToString_(value, tz) {
  * Đọc toàn bộ thông tin một nghiên cứu từ sheet DATABASE.
  * key: tên viết tắt hoặc mã nghiên cứu.
  */
-function getResearchDetail(key) {
+/**
+ * Doc chi tiet mot nghien cuu.
+ * key: ten viet tat hoac ma nghien cu.
+ * rowNumber: so dong trong sheet DATABASE — bat buoc khi co nhieu nghien cuu
+ * trung ten viet tat/ma, vi khi do tim theo key se luon ra dong dau tien.
+ */
+function getResearchDetail(key, rowNumber) {
   try {
     const needle = String(key || '').trim().toLowerCase();
     if (!needle) return { success: false, message: 'Chưa chọn nghiên cứu' };
@@ -336,26 +343,42 @@ function getResearchDetail(key) {
     const codeIdx = headers.indexOf('Mã nghiên cứu');
     const tz = Session.getScriptTimeZone();
 
+    const buildDetail = function (i) {
+      const row = data[i];
+      const values = {};
+      headers.forEach(function (h, idx) {
+        if (h) values[h] = cellToString_(row[idx], tz);
+      });
+      return {
+        success: true,
+        data: {
+          row: i + 1,
+          abbr: abbrIdx !== -1 ? cellToString_(row[abbrIdx], tz) : '',
+          code: codeIdx !== -1 ? cellToString_(row[codeIdx], tz) : '',
+          headers: headers.filter(function (h) { return !!h; }),
+          readonlyFields: DB_READONLY_FIELDS,
+          values: values
+        }
+      };
+    };
+
+    // Doc thang dong duoc chi dinh neu con khop ten viet tat hoac ma nghien cuu
+    const wanted = parseInt(rowNumber, 10);
+    if (!isNaN(wanted) && wanted >= 2 && wanted <= data.length) {
+      const row = data[wanted - 1];
+      const abbr = abbrIdx !== -1 ? cellToString_(row[abbrIdx], tz) : '';
+      const code = codeIdx !== -1 ? cellToString_(row[codeIdx], tz) : '';
+      if (abbr.toLowerCase() === needle || code.toLowerCase() === needle) {
+        return buildDetail(wanted - 1);
+      }
+    }
+
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const abbr = abbrIdx !== -1 ? cellToString_(row[abbrIdx], tz) : '';
       const code = codeIdx !== -1 ? cellToString_(row[codeIdx], tz) : '';
       if (abbr.toLowerCase() === needle || code.toLowerCase() === needle) {
-        const values = {};
-        headers.forEach(function (h, idx) {
-          if (h) values[h] = cellToString_(row[idx], tz);
-        });
-        return {
-          success: true,
-          data: {
-            row: i + 1,
-            abbr: abbr,
-            code: code,
-            headers: headers.filter(function (h) { return !!h; }),
-            readonlyFields: DB_READONLY_FIELDS,
-            values: values
-          }
-        };
+        return buildDetail(i);
       }
     }
     return { success: false, message: 'Không tìm thấy nghiên cứu: ' + key };

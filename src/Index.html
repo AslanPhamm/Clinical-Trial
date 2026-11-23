@@ -913,7 +913,7 @@
       var html = '<div class="combo-head">' + (q ? 'KẾT QUẢ · ' + matches.length : 'GẦN ĐÂY · ' + matches.length + ' / ' + researchData.length) + '</div>';
       matches.forEach(function (r) {
         var color = studyStatusColor(r.tinhTrang);
-        html += '<button type="button" class="combo-item" onmousedown="selectResearch(\'' + escapeHtml(r.tenVietTat).replace(/'/g, "\\'") + '\')">' +
+        html += '<button type="button" class="combo-item" onmousedown="selectResearch(' + researchData.indexOf(r) + ')">' +
                   '<span class="dot" style="background:' + color + '"></span>' +
                   '<span class="combo-item-body">' +
                     '<span class="combo-item-title">' + escapeHtml(r.tenVietTat) + '</span>' +
@@ -943,8 +943,12 @@
       return s.slice(0, 20) + '…';
     }
 
-    function selectResearch(abbr) {
-      var r = researchData.filter(function (x) { return x.tenVietTat === abbr; })[0];
+    // ref: vi tri trong researchData (chinh xac khi co nghien cuu trung ten viet tat),
+    // hoac ten viet tat (giu lai cho cac cho goi cu — se lay dong khop dau tien)
+    function selectResearch(ref) {
+      var r = typeof ref === 'number'
+        ? researchData[ref]
+        : researchData.filter(function (x) { return x.tenVietTat === ref; })[0];
       if (!r) return;
       selectedResearch = r;
       $('researchInput').value = r.tenVietTat;
@@ -1446,7 +1450,7 @@
 
       list.innerHTML = matches.map(function (r) {
         var color = studyStatusColor(r.tinhTrang);
-        return '<button type="button" class="combo-item" onmousedown="openDetail(\'' + escapeHtml(r.tenVietTat).replace(/'/g, "\\'") + '\')">' +
+        return '<button type="button" class="combo-item" onmousedown="openDetail(' + researchData.indexOf(r) + ')">' +
                  '<span class="dot" style="background:' + color + '"></span>' +
                  '<span class="combo-item-body">' +
                    '<span class="combo-item-title">' + escapeHtml(r.tenVietTat) + '</span>' +
@@ -1459,13 +1463,19 @@
 
     function hideDetailListLater() { setTimeout(function () { $('detailList').hidden = true; }, 180); }
 
-    function openDetail(abbr) {
-      if (!abbr) return;
+    function openDetail(ref) {
+      if (ref === null || ref === undefined || ref === '') return;
       switchTab('detail');
-      loadDetailData(abbr);
+      if (typeof ref === 'number') {
+        var r = researchData[ref];
+        if (!r) return;
+        loadDetailData(r.tenVietTat, r.row);
+      } else {
+        loadDetailData(ref);
+      }
     }
 
-    function loadDetailData(abbr) {
+    function loadDetailData(abbr, rowNumber) {
       if (!abbr) return;
       $('detailList').hidden = true;
       $('detailSearch').value = abbr;
@@ -1486,7 +1496,7 @@
         }
       }).withFailureHandler(function (err) {
         showAlert('error', 'Không đọc được sheet DATABASE: ' + (err.message || err));
-      }).getResearchDetail(abbr);
+      }).getResearchDetail(abbr, rowNumber);
     }
 
     function renderDetail() {
@@ -1695,7 +1705,7 @@
         $('updateSaveText').textContent = 'LƯU CẬP NHẬT';
         if (result && result.success) {
           showAlert('success', result.message);
-          loadDetailData(detailData.abbr);
+          loadDetailData(detailData.abbr, detailData.row);
           google.script.run.withSuccessHandler(function (res) {
             if (res && res.success) { researchData = res.data; $('totalResearch').textContent = res.total; }
           }).getResearchList();
@@ -1713,7 +1723,11 @@
     function assignFromDetail() {
       if (!detailData) return;
       switchTab('assignment');
-      selectResearch(detailData.abbr);
+      var idx = -1;
+      for (var i = 0; i < researchData.length; i++) {
+        if (researchData[i].row === detailData.row) { idx = i; break; }
+      }
+      selectResearch(idx >= 0 ? idx : detailData.abbr);
       $('taskName').focus();
     }
 
